@@ -54,9 +54,13 @@ func (p *Printer) printParams(params []*ast.Parameter) {
 }
 
 func (p *Printer) VisitProgram(node *ast.Program) any {
-	for _, stmt := range node.Body {
+	for i, stmt := range node.Body {
 		stmt.Accept(p)
 		p.write("\n")
+
+		if _, isFunc := stmt.(*ast.FunctionDef); isFunc && i < len(node.Body)-1 {
+			p.write("\n")
+		}
 	}
 	return nil
 }
@@ -79,7 +83,7 @@ func (p *Printer) VisitModule(node *ast.Module) any {
 func (p *Printer) VisitComment(node *ast.Comment) any {
 	p.writeIndent()
 	p.write("-- ")
-	p.write(node.Text)
+	p.write(strings.TrimSpace(node.Text))
 	return nil
 }
 

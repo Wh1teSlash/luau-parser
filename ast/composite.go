@@ -26,6 +26,7 @@ type Comment struct {
 
 func (c *Comment) String() string       { return fmt.Sprintf("Comment{%s}", c.Text) }
 func (c *Comment) Accept(v Visitor) any { return v.VisitComment(c) }
+func (c *Comment) statementNode()       {}
 
 type Module struct {
 	BaseNode

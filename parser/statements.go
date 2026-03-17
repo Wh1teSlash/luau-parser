@@ -23,11 +23,22 @@ func (p *Parser) parseStatement() ast.Stmt {
 		return p.parseFunctionStatement()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
+	case lexer.COMMENT:
+		return p.parseComment()
 	case lexer.BREAK:
 		return &ast.BreakStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseComment() ast.Stmt {
+	stmt := &ast.Comment{
+		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
+		Text:     p.curToken.Literal,
+	}
+
+	return stmt
 }
 
 func (p *Parser) parseForStatement() ast.Stmt {
