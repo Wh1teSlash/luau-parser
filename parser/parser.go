@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/Wh1teSlash/luau-parser/ast"
 	"github.com/Wh1teSlash/luau-parser/lexer"
 )
@@ -36,6 +38,16 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.NOT, p.parsePrefixExpression)
 	p.registerPrefix(lexer.HASH, p.parsePrefixExpression)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
+	p.registerInfix(lexer.LPAREN, p.parseFunctionCall)
+	p.registerInfix(lexer.LBRACKET, p.parseIndexAccess)
+	p.registerInfix(lexer.DOT, p.parseFieldAccess)
+	p.registerInfix(lexer.COLON, p.parseMethodCall)
+	p.registerPrefix(lexer.FLOAT, p.parseFloatLiteral)
+	p.registerPrefix(lexer.LBRACE, p.parseTableLiteral)
+	p.registerPrefix(lexer.FUNCTION, p.parseFunctionExpr)
+	p.registerInfix(lexer.DOUBLE_COLON, p.parseTypeCast)
+	p.registerPrefix(lexer.IF, p.parseIfExpr)
+	p.registerPrefix(lexer.ELLIPSIS, p.parseVarArgs)
 
 	binaryOps := []lexer.TokenType{
 		lexer.PLUS, lexer.MINUS, lexer.SLASH, lexer.ASTERISK,
@@ -67,6 +79,18 @@ func (p *Parser) registerInfix(tokenType lexer.TokenType, fn infixParseFn) {
 	p.infixParseFns[tokenType] = fn
 }
 
+func (p *Parser) expectPeek(t lexer.TokenType) bool {
+	if p.peekToken.Type == t {
+		p.nextToken()
+		return true
+	} else {
+		err := fmt.Errorf("expected next token to be %s, got %s instead at line %d, col %d",
+			t, p.peekToken.Type, p.peekToken.Pos.Line, p.peekToken.Pos.Column)
+		p.errors = append(p.errors, err)
+		return false
+	}
+}
+
 func (p *Parser) peekPrecedence() int {
 	if p, ok := precedences[p.peekToken.Type]; ok {
 		return p
@@ -96,4 +120,26 @@ func (p *Parser) ParseProgram() *ast.Program {
 	}
 
 	return program
+}
+
+func (p *Parser) parseBlock() *ast.Block {
+	block := &ast.Block{
+		BaseNode:   ast.BaseNode{Position: p.curToken.Pos},
+		Statements: []ast.Stmt{},
+	}
+
+	for p.curToken.Type != lexer.END &&
+		p.curToken.Type != lexer.ELSE &&
+		p.curToken.Type != lexer.ELSEIF &&
+		p.curToken.Type != lexer.UNTIL &&
+		p.curToken.Type != lexer.EOF {
+
+		stmt := p.parseStatement()
+		if stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return block
 }

@@ -4,11 +4,12 @@ import "fmt"
 
 type Assignment struct {
 	BaseNode
-	Target Expr // usually Identifier, IndexAccess or FieldAccess
-	Value  Expr
+	Targets  []Expr
+	Operator string
+	Values   []Expr
 }
 
-func (a *Assignment) String() string       { return "Assignment" }
+func (a *Assignment) String() string       { return fmt.Sprintf("Assignment{%s}", a.Operator) }
 func (a *Assignment) Accept(v Visitor) any { return v.VisitAssignment(a) }
 func (a *Assignment) statementNode()       {}
 
@@ -177,3 +178,12 @@ type EmptyStatement struct {
 func (e *EmptyStatement) String() string       { return "EmptyStatement" }
 func (e *EmptyStatement) Accept(v Visitor) any { return v.VisitEmptyStatement(e) }
 func (e *EmptyStatement) statementNode()       {}
+
+type ExpressionStatement struct {
+	BaseNode
+	Expr Expr
+}
+
+func (e *ExpressionStatement) String() string       { return e.Expr.String() }
+func (e *ExpressionStatement) Accept(v Visitor) any { return v.VisitExpressionStatement(e) }
+func (e *ExpressionStatement) statementNode()       {}

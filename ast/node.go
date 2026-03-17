@@ -63,6 +63,7 @@ type Visitor interface {
 	VisitTypeAlias(node *TypeAlias) any
 	VisitMetamethodDef(node *MetamethodDef) any
 	VisitEmptyStatement(node *EmptyStatement) any
+	VisitExpressionStatement(node *ExpressionStatement) any
 
 	// Composites
 	VisitBlock(node *Block) any

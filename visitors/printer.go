@@ -85,9 +85,13 @@ func (p *Printer) VisitComment(node *ast.Comment) any {
 
 func (p *Printer) VisitAssignment(node *ast.Assignment) any {
 	p.writeIndent()
-	node.Target.Accept(p)
-	p.write(" = ")
-	node.Value.Accept(p)
+	p.printExprList(node.Targets)
+
+	p.write(" ")
+	p.write(node.Operator)
+	p.write(" ")
+
+	p.printExprList(node.Values)
 	return nil
 }
 
@@ -452,5 +456,11 @@ func (p *Printer) VisitParenExpr(node *ast.ParenExpr) any {
 	p.write("(")
 	node.Expr.Accept(p)
 	p.write(")")
+	return nil
+}
+
+func (p *Printer) VisitExpressionStatement(node *ast.ExpressionStatement) any {
+	p.writeIndent()
+	node.Expr.Accept(p)
 	return nil
 }
