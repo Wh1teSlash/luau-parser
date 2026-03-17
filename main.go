@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Wh1teSlash/luau-parser/ast"
-	"github.com/Wh1teSlash/luau-parser/lexer"
 	"github.com/Wh1teSlash/luau-parser/visitors"
 )
 
@@ -40,9 +39,4 @@ func main() {
 	output := printer.Print(program)
 
 	fmt.Print(output)
-
-	l := lexer.New(`x = 5 + 3`)
-	for tok := l.NextToken(); tok.Type != lexer.EOF; tok = l.NextToken() {
-		fmt.Printf("%+v\n", tok)
-	}
 }

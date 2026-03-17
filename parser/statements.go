@@ -27,7 +27,6 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		Types:    []*ast.TypeAnnotation{},
 	}
 
-	// 1. Читаем список имен переменных
 	for {
 		p.nextToken()
 		if p.curToken.Type != lexer.IDENT {
@@ -36,22 +35,19 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		}
 		stmt.Names = append(stmt.Names, p.curToken.Literal)
 
-		// TODO: здесь можно добавить логику парсинга аннотаций типов (например, `local x: number`)
-
 		if p.peekToken.Type != lexer.COMMA {
 			break
 		}
-		p.nextToken() // пропускаем запятую
+		p.nextToken()
 	}
 
 	if p.peekToken.Type != lexer.ASSIGN {
-		return stmt // Просто объявление (local x)
+		return stmt
 	}
 
-	p.nextToken() // Съедаем последний идентификатор
-	p.nextToken() // Съедаем `=`
+	p.nextToken()
+	p.nextToken()
 
-	// 2. Читаем список значений
 	for {
 		val := p.parseExpression(LOWEST)
 		if val != nil {
@@ -65,16 +61,12 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		p.nextToken()
 	}
 
-	// TODO: Ожидаем точку с запятой (если она есть)
-
 	return stmt
 }
 
 func (p *Parser) parseExpressionStatement() ast.Stmt {
 	expr := p.parseExpression(LOWEST)
 
-	// Временная заглушка, чтобы код компилировался.
-	// Настоящий парсер здесь проверит, не является ли это Assignment, FunctionCall или MethodCall.
 	if expr != nil {
 		_ = expr
 	}
