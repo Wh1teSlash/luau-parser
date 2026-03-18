@@ -8,7 +8,9 @@ A high-performance, zero-allocation (Arena-backed), lossless Luau parser enginee
 go get github.com/Wh1teSlash/luau-parser
 ```
 
-# Basic Usage: Parsing Luau Code
+# Usage
+
+## Parsing Luau Code
 
 The standard workflow involves passing your source code to the Lexer, injecting an AST Factory into the Parser, and generating the tree.
 
@@ -59,7 +61,7 @@ func main() {
 }
 ```
 
-# Advanced: Programmatic AST Construction
+## Programmatic AST Construction
 
 Because luau-parser uses a high-performance NodeFactory, you can rapidly construct, manipulate, or test AST nodes programmatically without needing to parse raw text.
 
