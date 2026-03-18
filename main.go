@@ -59,4 +59,6 @@ print("Total Time:", os.clock() - TStart .. "s")
 
 	treePrinter := visitors.NewTreePrinter()
 	fmt.Println(treePrinter.Print(program))
+	printer := visitors.NewPrinter()
+	fmt.Println(printer.Print(program))
 }
