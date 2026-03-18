@@ -23,10 +23,9 @@ func (p *TreePrinter) Print(node ast.Node) string {
 	return p.builder.String()
 }
 
-// Helper to write an indented line with formatting
 func (p *TreePrinter) writeLine(format string, args ...any) {
 	p.builder.WriteString(strings.Repeat("  ", p.indent))
-	p.builder.WriteString(fmt.Sprintf(format, args...))
+	fmt.Fprintf(&p.builder, format, args...)
 	p.builder.WriteString("\n")
 }
 
