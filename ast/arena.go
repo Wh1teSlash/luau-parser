@@ -27,6 +27,7 @@ func (a *TypedArena[T]) Alloc() *T {
 }
 
 func (a *TypedArena[T]) Reset() {
+	a.chunks = a.chunks[:1]
 	a.chunkIdx = 0
 	a.itemIdx = 0
 }

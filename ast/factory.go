@@ -433,6 +433,7 @@ func (f *NodeFactory) FunctionDef(pos Position, name string, body *Block, opts .
 	node.Generics = []string{}
 	node.Parameters = []*Parameter{}
 	node.ReturnType = nil
+	node.Attributes = nil
 
 	for _, opt := range opts {
 		opt(node)
