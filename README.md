@@ -163,3 +163,71 @@ func main() {
 	})))
 }
 ```
+
+## Transforming the AST
+luau-parser provides a `Transformer` interface and a `BaseTransformer` base implementation for walking and rewriting the AST. Embed `BaseTransformer` in your own struct and override only the node types you want to change — everything else is passed through and recursively walked by default.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/Wh1teSlash/luau-parser/ast"
+	"github.com/Wh1teSlash/luau-parser/lexer"
+	"github.com/Wh1teSlash/luau-parser/parser"
+	"github.com/Wh1teSlash/luau-parser/visitors"
+)
+
+// RenameTransformer renames all identifiers matching From to To.
+type RenameTransformer struct {
+	ast.BaseTransformer
+	From, To string
+}
+
+func (r *RenameTransformer) TransformIdentifier(node *ast.Identifier) ast.Expr {
+	if node.Name == r.From {
+		node.Name = r.To
+	}
+	return node
+}
+
+func main() {
+	input := `
+	local x = 5
+	print(x + 1)
+	`
+	l := lexer.New(input)
+	factory := ast.NewFactory()
+	p := parser.New(l, factory)
+	program := p.ParseProgram()
+
+	// Rename every identifier "x" to "value"
+	t := &RenameTransformer{From: "x", To: "value"}
+	t.TransformProgram(program)
+
+	printer := visitors.NewPrinter()
+	fmt.Println(printer.Print(program))
+	// local value = 5
+	// print(value + 1)
+
+	factory.Reset()
+}
+```
+
+The transformer mutates nodes in place, which fits the arena model — no extra allocations. If you need to produce a new node instead of mutating (e.g. changing a node's type entirely), use the factory inside your override:
+
+```go
+type ZeroLiteralsTransformer struct {
+	ast.BaseTransformer
+	factory *ast.NodeFactory
+}
+
+func (t *ZeroLiteralsTransformer) TransformLiteral(node *ast.Literal) ast.Expr {
+	if node.Type == "number" {
+		// replace every number literal with zero
+		return t.factory.Literal(node.Pos(), "number", int64(0))
+	}
+	return node
+}
+```
