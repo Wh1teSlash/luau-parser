@@ -1,6 +1,8 @@
 package ast
 
 type NodeFactory struct {
+	nextID int
+
 	identifiers         *TypedArena[Identifier]
 	literals            *TypedArena[Literal]
 	binaryOps           *TypedArena[BinaryOp]
@@ -110,7 +112,14 @@ func NewFactory() *NodeFactory {
 	}
 }
 
+func (f *NodeFactory) nextNodeID() int {
+	f.nextID++
+	return f.nextID
+}
+
 func (f *NodeFactory) Reset() {
+	f.nextID = 0
+
 	f.identifiers.Reset()
 	f.literals.Reset()
 	f.binaryOps.Reset()
@@ -166,6 +175,7 @@ func (f *NodeFactory) Reset() {
 
 func (f *NodeFactory) Attribute(pos Position, name string) *Attribute {
 	node := f.attributes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	return node
@@ -173,6 +183,7 @@ func (f *NodeFactory) Attribute(pos Position, name string) *Attribute {
 
 func (f *NodeFactory) Identifier(pos Position, name string) *Identifier {
 	node := f.identifiers.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	return node
@@ -180,6 +191,7 @@ func (f *NodeFactory) Identifier(pos Position, name string) *Identifier {
 
 func (f *NodeFactory) Literal(pos Position, litType string, value any) *Literal {
 	node := f.literals.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Type = litType
 	node.Value = value
@@ -188,6 +200,7 @@ func (f *NodeFactory) Literal(pos Position, litType string, value any) *Literal 
 
 func (f *NodeFactory) BinaryOp(pos Position, left Expr, op string, right Expr) *BinaryOp {
 	node := f.binaryOps.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Left = left
 	node.Op = op
@@ -197,6 +210,7 @@ func (f *NodeFactory) BinaryOp(pos Position, left Expr, op string, right Expr) *
 
 func (f *NodeFactory) UnaryOp(pos Position, op string, operand Expr) *UnaryOp {
 	node := f.unaryOps.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Op = op
 	node.Operand = operand
@@ -208,6 +222,7 @@ func (f *NodeFactory) FunctionCall(pos Position, function Expr, args []Expr) *Fu
 		args = []Expr{}
 	}
 	node := f.functionCalls.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Function = function
 	node.Args = args
@@ -219,6 +234,7 @@ func (f *NodeFactory) MethodCall(pos Position, object Expr, method string, args 
 		args = []Expr{}
 	}
 	node := f.methodCalls.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Object = object
 	node.Method = method
@@ -228,6 +244,7 @@ func (f *NodeFactory) MethodCall(pos Position, object Expr, method string, args 
 
 func (f *NodeFactory) IndexAccess(pos Position, table Expr, index Expr) *IndexAccess {
 	node := f.indexAccesses.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Table = table
 	node.Index = index
@@ -236,6 +253,7 @@ func (f *NodeFactory) IndexAccess(pos Position, table Expr, index Expr) *IndexAc
 
 func (f *NodeFactory) FieldAccess(pos Position, object Expr, field string) *FieldAccess {
 	node := f.fieldAccesses.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Object = object
 	node.Field = field
@@ -247,6 +265,7 @@ func (f *NodeFactory) TableLiteral(pos Position, fields []*TableField) *TableLit
 		fields = []*TableField{}
 	}
 	node := f.tableLiterals.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Fields = fields
 	return node
@@ -257,6 +276,7 @@ func (f *NodeFactory) FunctionExpr(pos Position, params []*Parameter, body *Bloc
 		params = []*Parameter{}
 	}
 	node := f.functionExprs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Generics = []string{}
 	node.Parameters = params
@@ -271,6 +291,7 @@ func (f *NodeFactory) FunctionExpr(pos Position, params []*Parameter, body *Bloc
 
 func (f *NodeFactory) TypeCast(pos Position, value Expr, typeNode TypeNode) *TypeCast {
 	node := f.typeCasts.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Value = value
 	node.Type = typeNode
@@ -279,28 +300,29 @@ func (f *NodeFactory) TypeCast(pos Position, value Expr, typeNode TypeNode) *Typ
 
 func (f *NodeFactory) IfExpr(pos Position, condition Expr, then Expr, opts ...IfExprOption) *IfExpr {
 	node := f.ifExprs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Condition = condition
 	node.Then = then
-
 	node.ElseIfs = []*ElseIfExprClause{}
 	node.Else = nil
 
 	for _, opt := range opts {
 		opt(node)
 	}
-
 	return node
 }
 
 func (f *NodeFactory) VarArgs(pos Position) *VarArgs {
 	node := f.varArgs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	return node
 }
 
 func (f *NodeFactory) ParenExpr(pos Position, expr Expr) *ParenExpr {
 	node := f.parenExprs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Expr = expr
 	return node
@@ -314,6 +336,7 @@ func (f *NodeFactory) InterpolatedString(pos Position, segments []string, expres
 		expressions = []Expr{}
 	}
 	node := f.interpolatedStrings.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Segments = segments
 	node.Expressions = expressions
@@ -325,6 +348,7 @@ func (f *NodeFactory) Block(pos Position, statements []Stmt) *Block {
 		statements = []Stmt{}
 	}
 	node := f.blocks.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Statements = statements
 	return node
@@ -338,6 +362,7 @@ func (f *NodeFactory) Assignment(pos Position, targets []Expr, operator string, 
 		values = []Expr{}
 	}
 	node := f.assignments.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Targets = targets
 	node.Operator = operator
@@ -347,6 +372,7 @@ func (f *NodeFactory) Assignment(pos Position, targets []Expr, operator string, 
 
 func (f *NodeFactory) LocalAssignment(pos Position, names []string, values []Expr, opts ...LocalAssignmentOption) *LocalAssignment {
 	node := f.localAssignments.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Names = names
 	node.Types = nil
@@ -360,23 +386,22 @@ func (f *NodeFactory) LocalAssignment(pos Position, names []string, values []Exp
 
 func (f *NodeFactory) IfStatement(pos Position, condition Expr, then *Block, opts ...IfStmtOption) *IfStatement {
 	node := f.ifStatements.Alloc()
-
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Condition = condition
 	node.Then = then
-
 	node.ElseIfs = []*ElseIfClause{}
 	node.Else = nil
 
 	for _, opt := range opts {
 		opt(node)
 	}
-
 	return node
 }
 
 func (f *NodeFactory) WhileLoop(pos Position, condition Expr, body *Block) *WhileLoop {
 	node := f.whileLoops.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Condition = condition
 	node.Body = body
@@ -385,6 +410,7 @@ func (f *NodeFactory) WhileLoop(pos Position, condition Expr, body *Block) *Whil
 
 func (f *NodeFactory) RepeatLoop(pos Position, body *Block, condition Expr) *RepeatLoop {
 	node := f.repeatLoops.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Body = body
 	node.Condition = condition
@@ -393,6 +419,7 @@ func (f *NodeFactory) RepeatLoop(pos Position, body *Block, condition Expr) *Rep
 
 func (f *NodeFactory) ForLoop(pos Position, variable string, start Expr, end Expr, body *Block, opts ...ForLoopOption) *ForLoop {
 	node := f.forLoops.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Variable = variable
 	node.Start = start
@@ -414,6 +441,7 @@ func (f *NodeFactory) ForInLoop(pos Position, variables []string, iterables []Ex
 		iterables = []Expr{}
 	}
 	node := f.forInLoops.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Variables = variables
 	node.Iterables = iterables
@@ -423,6 +451,7 @@ func (f *NodeFactory) ForInLoop(pos Position, variables []string, iterables []Ex
 
 func (f *NodeFactory) DoBlock(pos Position, body *Block) *DoBlock {
 	node := f.doBlocks.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Body = body
 	return node
@@ -430,11 +459,10 @@ func (f *NodeFactory) DoBlock(pos Position, body *Block) *DoBlock {
 
 func (f *NodeFactory) FunctionDef(pos Position, name string, body *Block, opts ...FunctionDefOption) *FunctionDef {
 	node := f.functionDefs.Alloc()
-
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	node.Body = body
-
 	node.Generics = []string{}
 	node.Parameters = []*Parameter{}
 	node.ReturnType = nil
@@ -443,7 +471,6 @@ func (f *NodeFactory) FunctionDef(pos Position, name string, body *Block, opts .
 	for _, opt := range opts {
 		opt(node)
 	}
-
 	return node
 }
 
@@ -452,6 +479,7 @@ func (f *NodeFactory) LocalFunction(pos Position, name string, params []*Paramet
 		params = []*Parameter{}
 	}
 	node := f.localFunctions.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	node.Generics = []string{}
@@ -471,6 +499,7 @@ func (f *NodeFactory) ReturnStatement(pos Position, values []Expr) *ReturnStatem
 		values = []Expr{}
 	}
 	node := f.returnStatements.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Values = values
 	return node
@@ -478,30 +507,30 @@ func (f *NodeFactory) ReturnStatement(pos Position, values []Expr) *ReturnStatem
 
 func (f *NodeFactory) BreakStatement(pos Position) *BreakStatement {
 	node := f.breakStatements.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	return node
 }
 
 func (f *NodeFactory) ContinueStatement(pos Position) *ContinueStatement {
 	node := f.continueStatements.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	return node
 }
 
 func (f *NodeFactory) TypeAlias(pos Position, name string, typeNode TypeNode, opts ...TypeAliasOption) *TypeAlias {
 	node := f.typeAliases.Alloc()
-
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	node.Type = typeNode
-
 	node.Generics = []string{}
 	node.IsExport = false
 
 	for _, opt := range opts {
 		opt(node)
 	}
-
 	return node
 }
 
@@ -510,6 +539,7 @@ func (f *NodeFactory) MetamethodDef(pos Position, name string, params []*Paramet
 		params = []*Parameter{}
 	}
 	node := f.metamethodDefs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	node.Parameters = params
@@ -519,12 +549,14 @@ func (f *NodeFactory) MetamethodDef(pos Position, name string, params []*Paramet
 
 func (f *NodeFactory) EmptyStatement(pos Position) *EmptyStatement {
 	node := f.emptyStatements.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	return node
 }
 
 func (f *NodeFactory) ExpressionStatement(pos Position, expr Expr) *ExpressionStatement {
 	node := f.expressionStatements.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Expr = expr
 	return node
@@ -532,6 +564,7 @@ func (f *NodeFactory) ExpressionStatement(pos Position, expr Expr) *ExpressionSt
 
 func (f *NodeFactory) PrimitiveType(pos Position, name string) *PrimitiveType {
 	node := f.primitiveTypes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	return node
@@ -539,6 +572,7 @@ func (f *NodeFactory) PrimitiveType(pos Position, name string) *PrimitiveType {
 
 func (f *NodeFactory) UnionType(pos Position, left TypeNode, right TypeNode) *UnionType {
 	node := f.unionTypes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Left = left
 	node.Right = right
@@ -547,6 +581,7 @@ func (f *NodeFactory) UnionType(pos Position, left TypeNode, right TypeNode) *Un
 
 func (f *NodeFactory) OptionalType(pos Position, baseType TypeNode) *OptionalType {
 	node := f.optionalTypes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.BaseType = baseType
 	return node
@@ -557,6 +592,7 @@ func (f *NodeFactory) TableType(pos Position, fields []*TableTypeField) *TableTy
 		fields = []*TableTypeField{}
 	}
 	node := f.tableTypes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Fields = fields
 	return node
@@ -567,6 +603,7 @@ func (f *NodeFactory) GenericType(pos Position, baseType TypeNode, types []TypeN
 		types = []TypeNode{}
 	}
 	node := f.genericTypes.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.BaseType = baseType
 	node.Types = types
@@ -578,6 +615,7 @@ func (f *NodeFactory) Program(pos Position, body []Stmt) *Program {
 		body = []Stmt{}
 	}
 	node := f.programs.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Body = body
 	return node
@@ -585,6 +623,7 @@ func (f *NodeFactory) Program(pos Position, body []Stmt) *Program {
 
 func (f *NodeFactory) Comment(pos Position, text string) *Comment {
 	node := f.comments.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Text = text
 	return node
@@ -592,6 +631,7 @@ func (f *NodeFactory) Comment(pos Position, text string) *Comment {
 
 func (f *NodeFactory) Module(pos Position, name string, body *Block) *Module {
 	node := f.modules.Alloc()
+	node.NodeID = f.nextNodeID()
 	node.Position = pos
 	node.Name = name
 	node.Body = body

@@ -10,6 +10,7 @@ import (
 type TreePrinter struct {
 	builder strings.Builder
 	indent  int
+	ShowIDs bool
 }
 
 func NewTreePrinter() *TreePrinter {
@@ -27,6 +28,14 @@ func (p *TreePrinter) writeLine(format string, args ...any) {
 	p.builder.WriteString(strings.Repeat("  ", p.indent))
 	fmt.Fprintf(&p.builder, format, args...)
 	p.builder.WriteString("\n")
+}
+
+func (p *TreePrinter) writeNode(node ast.Node, format string, args ...any) {
+	label := fmt.Sprintf(format, args...)
+	if p.ShowIDs {
+		label = fmt.Sprintf("%s [#%d]", label, node.ID())
+	}
+	p.writeLine("%s", label)
 }
 
 func (p *TreePrinter) printParams(params []*ast.Parameter) {
@@ -47,7 +56,7 @@ func (p *TreePrinter) printParams(params []*ast.Parameter) {
 }
 
 func (p *TreePrinter) VisitProgram(node *ast.Program) any {
-	p.writeLine("Program")
+	p.writeNode(node, "Program")
 	p.indent++
 	for _, stmt := range node.Body {
 		stmt.Accept(p)
@@ -57,7 +66,7 @@ func (p *TreePrinter) VisitProgram(node *ast.Program) any {
 }
 
 func (p *TreePrinter) VisitBlock(node *ast.Block) any {
-	p.writeLine("Block")
+	p.writeNode(node, "Block")
 	p.indent++
 	for _, stmt := range node.Statements {
 		stmt.Accept(p)
@@ -67,7 +76,7 @@ func (p *TreePrinter) VisitBlock(node *ast.Block) any {
 }
 
 func (p *TreePrinter) VisitModule(node *ast.Module) any {
-	p.writeLine("Module")
+	p.writeNode(node, "Module")
 	p.indent++
 	if node.Body != nil {
 		node.Body.Accept(p)
@@ -77,17 +86,17 @@ func (p *TreePrinter) VisitModule(node *ast.Module) any {
 }
 
 func (p *TreePrinter) VisitComment(node *ast.Comment) any {
-	p.writeLine("Comment: %q", strings.TrimSpace(node.Text))
+	p.writeNode(node, "Comment: %q", strings.TrimSpace(node.Text))
 	return nil
 }
 
 func (p *TreePrinter) VisitAttribute(node *ast.Attribute) any {
-	p.writeLine("Attribute: @%s", node.Name)
+	p.writeNode(node, "Attribute: @%s", node.Name)
 	return nil
 }
 
 func (p *TreePrinter) VisitAssignment(node *ast.Assignment) any {
-	p.writeLine("Assignment (Op: %s)", node.Operator)
+	p.writeNode(node, "Assignment (Op: %s)", node.Operator)
 	p.indent++
 	p.writeLine("Targets:")
 	p.indent++
@@ -106,7 +115,7 @@ func (p *TreePrinter) VisitAssignment(node *ast.Assignment) any {
 }
 
 func (p *TreePrinter) VisitLocalAssignment(node *ast.LocalAssignment) any {
-	p.writeLine("LocalAssignment (Names: %s)", strings.Join(node.Names, ", "))
+	p.writeNode(node, "LocalAssignment (Names: %s)", strings.Join(node.Names, ", "))
 	p.indent++
 	if len(node.Values) > 0 {
 		p.writeLine("Values:")
@@ -121,7 +130,7 @@ func (p *TreePrinter) VisitLocalAssignment(node *ast.LocalAssignment) any {
 }
 
 func (p *TreePrinter) VisitIfStatement(node *ast.IfStatement) any {
-	p.writeLine("IfStatement")
+	p.writeNode(node, "IfStatement")
 	p.indent++
 	p.writeLine("Condition:")
 	p.indent++
@@ -157,7 +166,7 @@ func (p *TreePrinter) VisitIfStatement(node *ast.IfStatement) any {
 }
 
 func (p *TreePrinter) VisitWhileLoop(node *ast.WhileLoop) any {
-	p.writeLine("WhileLoop")
+	p.writeNode(node, "WhileLoop")
 	p.indent++
 	p.writeLine("Condition:")
 	p.indent++
@@ -172,7 +181,7 @@ func (p *TreePrinter) VisitWhileLoop(node *ast.WhileLoop) any {
 }
 
 func (p *TreePrinter) VisitRepeatLoop(node *ast.RepeatLoop) any {
-	p.writeLine("RepeatLoop")
+	p.writeNode(node, "RepeatLoop")
 	p.indent++
 	p.writeLine("Body:")
 	p.indent++
@@ -187,7 +196,7 @@ func (p *TreePrinter) VisitRepeatLoop(node *ast.RepeatLoop) any {
 }
 
 func (p *TreePrinter) VisitForLoop(node *ast.ForLoop) any {
-	p.writeLine("ForLoop (Var: %s)", node.Variable)
+	p.writeNode(node, "ForLoop (Var: %s)", node.Variable)
 	p.indent++
 	p.writeLine("Start:")
 	p.indent++
@@ -212,7 +221,7 @@ func (p *TreePrinter) VisitForLoop(node *ast.ForLoop) any {
 }
 
 func (p *TreePrinter) VisitForInLoop(node *ast.ForInLoop) any {
-	p.writeLine("ForInLoop (Vars: %s)", strings.Join(node.Variables, ", "))
+	p.writeNode(node, "ForInLoop (Vars: %s)", strings.Join(node.Variables, ", "))
 	p.indent++
 	p.writeLine("Iterables:")
 	p.indent++
@@ -229,7 +238,7 @@ func (p *TreePrinter) VisitForInLoop(node *ast.ForInLoop) any {
 }
 
 func (p *TreePrinter) VisitDoBlock(node *ast.DoBlock) any {
-	p.writeLine("DoBlock")
+	p.writeNode(node, "DoBlock")
 	p.indent++
 	node.Body.Accept(p)
 	p.indent--
@@ -237,7 +246,7 @@ func (p *TreePrinter) VisitDoBlock(node *ast.DoBlock) any {
 }
 
 func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
-	p.writeLine("FunctionDef (Name: %s)", node.Name)
+	p.writeNode(node, "FunctionDef (Name: %s)", node.Name)
 	p.indent++
 
 	if len(node.Attributes) > 0 {
@@ -265,7 +274,7 @@ func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
 }
 
 func (p *TreePrinter) VisitLocalFunction(node *ast.LocalFunction) any {
-	p.writeLine("LocalFunctionDef (Name: %s)", node.Name)
+	p.writeNode(node, "LocalFunctionDef (Name: %s)", node.Name)
 	p.indent++
 
 	if len(node.Attributes) > 0 {
@@ -295,7 +304,7 @@ func (p *TreePrinter) VisitLocalFunction(node *ast.LocalFunction) any {
 }
 
 func (p *TreePrinter) VisitReturnStatement(node *ast.ReturnStatement) any {
-	p.writeLine("ReturnStatement")
+	p.writeNode(node, "ReturnStatement")
 	if len(node.Values) > 0 {
 		p.indent++
 		for _, val := range node.Values {
@@ -307,17 +316,17 @@ func (p *TreePrinter) VisitReturnStatement(node *ast.ReturnStatement) any {
 }
 
 func (p *TreePrinter) VisitBreakStatement(node *ast.BreakStatement) any {
-	p.writeLine("BreakStatement")
+	p.writeNode(node, "BreakStatement")
 	return nil
 }
 
 func (p *TreePrinter) VisitContinueStatement(node *ast.ContinueStatement) any {
-	p.writeLine("ContinueStatement")
+	p.writeNode(node, "ContinueStatement")
 	return nil
 }
 
 func (p *TreePrinter) VisitTypeAlias(node *ast.TypeAlias) any {
-	p.writeLine("TypeAlias (Export: %t, Name: %s)", node.IsExport, node.Name)
+	p.writeNode(node, "TypeAlias (Export: %t, Name: %s)", node.IsExport, node.Name)
 	p.indent++
 
 	if len(node.Generics) > 0 {
@@ -331,8 +340,9 @@ func (p *TreePrinter) VisitTypeAlias(node *ast.TypeAlias) any {
 	p.indent--
 	return nil
 }
+
 func (p *TreePrinter) VisitMetamethodDef(node *ast.MetamethodDef) any {
-	p.writeLine("MetamethodDef (Name: %s)", node.Name)
+	p.writeNode(node, "MetamethodDef (Name: %s)", node.Name)
 	p.indent++
 	p.printParams(node.Parameters)
 	p.writeLine("Body:")
@@ -344,12 +354,12 @@ func (p *TreePrinter) VisitMetamethodDef(node *ast.MetamethodDef) any {
 }
 
 func (p *TreePrinter) VisitEmptyStatement(node *ast.EmptyStatement) any {
-	p.writeLine("EmptyStatement")
+	p.writeNode(node, "EmptyStatement")
 	return nil
 }
 
 func (p *TreePrinter) VisitBinaryOp(node *ast.BinaryOp) any {
-	p.writeLine("BinaryOp (Op: %s)", node.Op)
+	p.writeNode(node, "BinaryOp (Op: %s)", node.Op)
 	p.indent++
 	node.Left.Accept(p)
 	node.Right.Accept(p)
@@ -358,7 +368,7 @@ func (p *TreePrinter) VisitBinaryOp(node *ast.BinaryOp) any {
 }
 
 func (p *TreePrinter) VisitUnaryOp(node *ast.UnaryOp) any {
-	p.writeLine("UnaryOp (Op: %s)", node.Op)
+	p.writeNode(node, "UnaryOp (Op: %s)", node.Op)
 	p.indent++
 	node.Operand.Accept(p)
 	p.indent--
@@ -366,21 +376,21 @@ func (p *TreePrinter) VisitUnaryOp(node *ast.UnaryOp) any {
 }
 
 func (p *TreePrinter) VisitIdentifier(node *ast.Identifier) any {
-	p.writeLine("Identifier: %s", node.Name)
+	p.writeNode(node, "Identifier: %s", node.Name)
 	return nil
 }
 
 func (p *TreePrinter) VisitLiteral(node *ast.Literal) any {
 	if node.Type == "string" {
-		p.writeLine("Literal (Type: %s, Value: %q)", node.Type, node.Value)
+		p.writeNode(node, "Literal (Type: %s, Value: %q)", node.Type, node.Value)
 	} else {
-		p.writeLine("Literal (Type: %s, Value: %v)", node.Type, node.Value)
+		p.writeNode(node, "Literal (Type: %s, Value: %v)", node.Type, node.Value)
 	}
 	return nil
 }
 
 func (p *TreePrinter) VisitFunctionCall(node *ast.FunctionCall) any {
-	p.writeLine("FunctionCall")
+	p.writeNode(node, "FunctionCall")
 	p.indent++
 	p.writeLine("Function:")
 	p.indent++
@@ -399,7 +409,7 @@ func (p *TreePrinter) VisitFunctionCall(node *ast.FunctionCall) any {
 }
 
 func (p *TreePrinter) VisitMethodCall(node *ast.MethodCall) any {
-	p.writeLine("MethodCall (Method: %s)", node.Method)
+	p.writeNode(node, "MethodCall (Method: %s)", node.Method)
 	p.indent++
 	p.writeLine("Object:")
 	p.indent++
@@ -418,7 +428,7 @@ func (p *TreePrinter) VisitMethodCall(node *ast.MethodCall) any {
 }
 
 func (p *TreePrinter) VisitIndexAccess(node *ast.IndexAccess) any {
-	p.writeLine("IndexAccess")
+	p.writeNode(node, "IndexAccess")
 	p.indent++
 	p.writeLine("Table:")
 	p.indent++
@@ -433,7 +443,7 @@ func (p *TreePrinter) VisitIndexAccess(node *ast.IndexAccess) any {
 }
 
 func (p *TreePrinter) VisitFieldAccess(node *ast.FieldAccess) any {
-	p.writeLine("FieldAccess (Field: %s)", node.Field)
+	p.writeNode(node, "FieldAccess (Field: %s)", node.Field)
 	p.indent++
 	p.writeLine("Object:")
 	p.indent++
@@ -444,7 +454,7 @@ func (p *TreePrinter) VisitFieldAccess(node *ast.FieldAccess) any {
 }
 
 func (p *TreePrinter) VisitTableLiteral(node *ast.TableLiteral) any {
-	p.writeLine("TableLiteral")
+	p.writeNode(node, "TableLiteral")
 	if len(node.Fields) > 0 {
 		p.indent++
 		for _, field := range node.Fields {
@@ -467,7 +477,7 @@ func (p *TreePrinter) VisitTableLiteral(node *ast.TableLiteral) any {
 }
 
 func (p *TreePrinter) VisitFunctionExpr(node *ast.FunctionExpr) any {
-	p.writeLine("FunctionExpr")
+	p.writeNode(node, "FunctionExpr")
 	p.indent++
 
 	p.printParams(node.Parameters)
@@ -488,7 +498,7 @@ func (p *TreePrinter) VisitFunctionExpr(node *ast.FunctionExpr) any {
 }
 
 func (p *TreePrinter) VisitTypeCast(node *ast.TypeCast) any {
-	p.writeLine("TypeCast")
+	p.writeNode(node, "TypeCast")
 	p.indent++
 	p.writeLine("Value:")
 	p.indent++
@@ -503,7 +513,7 @@ func (p *TreePrinter) VisitTypeCast(node *ast.TypeCast) any {
 }
 
 func (p *TreePrinter) VisitIfExpr(node *ast.IfExpr) any {
-	p.writeLine("IfExpr")
+	p.writeNode(node, "IfExpr")
 	p.indent++
 	p.writeLine("Condition:")
 	p.indent++
@@ -524,12 +534,12 @@ func (p *TreePrinter) VisitIfExpr(node *ast.IfExpr) any {
 }
 
 func (p *TreePrinter) VisitVarArgs(node *ast.VarArgs) any {
-	p.writeLine("VarArgs (...)")
+	p.writeNode(node, "VarArgs (...)")
 	return nil
 }
 
 func (p *TreePrinter) VisitParenExpr(node *ast.ParenExpr) any {
-	p.writeLine("ParenExpr")
+	p.writeNode(node, "ParenExpr")
 	p.indent++
 	node.Expr.Accept(p)
 	p.indent--
@@ -537,7 +547,7 @@ func (p *TreePrinter) VisitParenExpr(node *ast.ParenExpr) any {
 }
 
 func (p *TreePrinter) VisitExpressionStatement(node *ast.ExpressionStatement) any {
-	p.writeLine("ExpressionStatement")
+	p.writeNode(node, "ExpressionStatement")
 	p.indent++
 	node.Expr.Accept(p)
 	p.indent--
@@ -545,7 +555,7 @@ func (p *TreePrinter) VisitExpressionStatement(node *ast.ExpressionStatement) an
 }
 
 func (p *TreePrinter) VisitInterpolatedString(node *ast.InterpolatedString) any {
-	p.writeLine("InterpolatedString")
+	p.writeNode(node, "InterpolatedString")
 	p.indent++
 
 	for i, segment := range node.Segments {
@@ -564,12 +574,12 @@ func (p *TreePrinter) VisitInterpolatedString(node *ast.InterpolatedString) any 
 }
 
 func (p *TreePrinter) VisitPrimitiveType(node *ast.PrimitiveType) any {
-	p.writeLine("PrimitiveType: %s", node.Name)
+	p.writeNode(node, "PrimitiveType: %s", node.Name)
 	return nil
 }
 
 func (p *TreePrinter) VisitUnionType(node *ast.UnionType) any {
-	p.writeLine("UnionType")
+	p.writeNode(node, "UnionType")
 	p.indent++
 	node.Left.Accept(p)
 	node.Right.Accept(p)
@@ -578,7 +588,7 @@ func (p *TreePrinter) VisitUnionType(node *ast.UnionType) any {
 }
 
 func (p *TreePrinter) VisitOptionalType(node *ast.OptionalType) any {
-	p.writeLine("OptionalType (?)")
+	p.writeNode(node, "OptionalType (?)")
 	p.indent++
 	node.BaseType.Accept(p)
 	p.indent--
@@ -586,7 +596,7 @@ func (p *TreePrinter) VisitOptionalType(node *ast.OptionalType) any {
 }
 
 func (p *TreePrinter) VisitGenericType(node *ast.GenericType) any {
-	p.writeLine("GenericType")
+	p.writeNode(node, "GenericType")
 	p.indent++
 	p.writeLine("Base:")
 	p.indent++
@@ -603,7 +613,7 @@ func (p *TreePrinter) VisitGenericType(node *ast.GenericType) any {
 }
 
 func (p *TreePrinter) VisitTableType(node *ast.TableType) any {
-	p.writeLine("TableType")
+	p.writeNode(node, "TableType")
 	p.indent++
 	for _, field := range node.Fields {
 		if field.IsAccess {

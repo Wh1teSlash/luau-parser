@@ -8,6 +8,7 @@ type Position struct {
 type Node interface {
 	String() string
 	Pos() Position
+	ID() int
 	Accept(visitor Visitor) any
 }
 
@@ -23,10 +24,15 @@ type Stmt interface {
 
 type BaseNode struct {
 	Position Position
+	NodeID   int
 }
 
 func (b *BaseNode) Pos() Position {
 	return b.Position
+}
+
+func (b *BaseNode) ID() int {
+	return b.NodeID
 }
 
 type Visitor interface {
