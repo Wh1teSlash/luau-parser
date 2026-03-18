@@ -9,6 +9,9 @@ import (
 
 func (p *Parser) parseStatement() ast.Stmt {
 	switch p.curToken.Type {
+	case lexer.SEMICOLON:
+		stmt := &ast.EmptyStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+		return stmt
 	case lexer.LOCAL:
 		return p.parseLocalStatement()
 	case lexer.IF:

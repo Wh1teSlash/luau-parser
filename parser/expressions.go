@@ -313,7 +313,10 @@ func (p *Parser) parseTypeCast(left ast.Expr) ast.Expr {
 }
 
 func (p *Parser) parseIfExpr() ast.Expr {
-	expr := &ast.IfExpr{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	expr := &ast.IfExpr{
+		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
+		ElseIfs:  []*ast.ElseIfExprClause{},
+	}
 	p.nextToken()
 
 	expr.Condition = p.parseExpression(LOWEST)
@@ -324,6 +327,22 @@ func (p *Parser) parseIfExpr() ast.Expr {
 	p.nextToken()
 
 	expr.Then = p.parseExpression(LOWEST)
+
+	for p.peekToken.Type == lexer.ELSEIF {
+		p.nextToken()
+		clause := &ast.ElseIfExprClause{}
+		p.nextToken()
+
+		clause.Condition = p.parseExpression(LOWEST)
+
+		if !p.expectPeek(lexer.THEN) {
+			return nil
+		}
+		p.nextToken()
+
+		clause.Then = p.parseExpression(LOWEST)
+		expr.ElseIfs = append(expr.ElseIfs, clause)
+	}
 
 	if !p.expectPeek(lexer.ELSE) {
 		return nil

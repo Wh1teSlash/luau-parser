@@ -138,12 +138,18 @@ type IfExpr struct {
 	BaseNode
 	Condition Expr
 	Then      Expr
+	ElseIfs   []*ElseIfExprClause
 	Else      Expr // may be nil
 }
 
 func (i *IfExpr) String() string       { return "IfExpr" }
 func (i *IfExpr) Accept(v Visitor) any { return v.VisitIfExpr(i) }
 func (i *IfExpr) expressionNode()      {}
+
+type ElseIfExprClause struct {
+	Condition Expr
+	Then      Expr
+}
 
 type VarArgs struct {
 	BaseNode
