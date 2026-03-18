@@ -41,7 +41,6 @@ func main() {
 		pos,
 		[]string{"x"},
 		[]ast.Expr{valX},
-		ast.WithTypes(factory.PrimitiveType(pos, "number")),
 	)
 
 	valY := factory.Literal(pos, "number", int64(6))
@@ -49,7 +48,6 @@ func main() {
 		pos,
 		[]string{"y"},
 		[]ast.Expr{valY},
-		ast.WithTypes(factory.PrimitiveType(pos, "number")),
 	)
 
 	identPrint := factory.Identifier(pos, "print")
