@@ -300,7 +300,13 @@ func (p *Parser) parseIfExpr() ast.Expr {
 	p.nextToken()
 	elseExpr := p.parseExpression(LOWEST)
 
-	return p.factory.IfExpr(pos, condition, then, elseIfs, elseExpr)
+	return p.factory.IfExpr(
+		pos,
+		condition,
+		then,
+		ast.WithElseIfExprs(elseIfs...),
+		ast.WithElseExpr(elseExpr),
+	)
 }
 
 func (p *Parser) parseVarArgs() ast.Expr {

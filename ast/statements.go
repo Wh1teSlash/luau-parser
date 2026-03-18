@@ -38,6 +38,20 @@ func (i *IfStatement) String() string       { return "IfStatement" }
 func (i *IfStatement) Accept(v Visitor) any { return v.VisitIfStatement(i) }
 func (i *IfStatement) statementNode()       {}
 
+type IfStmtOption func(*IfStatement)
+
+func WithStmtElseIfs(clauses ...*ElseIfClause) IfStmtOption {
+	return func(i *IfStatement) {
+		i.ElseIfs = append(i.ElseIfs, clauses...)
+	}
+}
+
+func WithStmtElse(elseBlock *Block) IfStmtOption {
+	return func(i *IfStatement) {
+		i.Else = elseBlock
+	}
+}
+
 type ElseIfClause struct {
 	Condition Expr
 	Body      *Block
@@ -87,6 +101,14 @@ func (f *ForInLoop) String() string       { return fmt.Sprintf("ForInLoop{vars: 
 func (f *ForInLoop) Accept(v Visitor) any { return v.VisitForInLoop(f) }
 func (f *ForInLoop) statementNode()       {}
 
+type ForLoopOption func(*ForLoop)
+
+func WithStep(step Expr) ForLoopOption {
+	return func(f *ForLoop) {
+		f.Step = step
+	}
+}
+
 type DoBlock struct {
 	BaseNode
 	Body *Block
@@ -110,6 +132,26 @@ func (f *FunctionDef) String() string {
 }
 func (f *FunctionDef) Accept(v Visitor) any { return v.VisitFunctionDef(f) }
 func (f *FunctionDef) statementNode()       {}
+
+type FunctionDefOption func(*FunctionDef)
+
+func WithDefGenerics(generics ...string) FunctionDefOption {
+	return func(f *FunctionDef) {
+		f.Generics = generics
+	}
+}
+
+func WithDefParams(params ...*Parameter) FunctionDefOption {
+	return func(f *FunctionDef) {
+		f.Parameters = params
+	}
+}
+
+func WithDefReturnType(returnType TypeNode) FunctionDefOption {
+	return func(f *FunctionDef) {
+		f.ReturnType = returnType
+	}
+}
 
 type LocalFunction struct {
 	BaseNode
@@ -162,6 +204,20 @@ type TypeAlias struct {
 func (t *TypeAlias) String() string       { return fmt.Sprintf("TypeAlias{name: %s}", t.Name) }
 func (t *TypeAlias) Accept(v Visitor) any { return v.VisitTypeAlias(t) }
 func (t *TypeAlias) statementNode()       {}
+
+type TypeAliasOption func(*TypeAlias)
+
+func AsExported() TypeAliasOption {
+	return func(t *TypeAlias) {
+		t.IsExport = true
+	}
+}
+
+func WithTypeGenerics(generics ...string) TypeAliasOption {
+	return func(t *TypeAlias) {
+		t.Generics = generics
+	}
+}
 
 type MetamethodDef struct {
 	BaseNode

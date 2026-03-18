@@ -65,44 +65,80 @@ func main() {
 
 Because luau-parser uses a high-performance NodeFactory, you can rapidly construct, manipulate, or test AST nodes programmatically without needing to parse raw text.
 
-```Go
+For simple nodes, use the standard factory methods:
 
+```Go
 package main
 
 import (
-	"fmt"
+    "fmt"
 
-	"github.com/Wh1teSlash/luau-parser/ast"
-	"github.com/Wh1teSlash/luau-parser/visitors"
+    "github.com/Wh1teSlash/luau-parser/ast"
+    "github.com/Wh1teSlash/luau-parser/visitors"
 )
 
 func main() {
-	factory := ast.NewFactory()
-	pos := ast.Position{Line: 1, Column: 1}
+    factory := ast.NewFactory()
+    pos := ast.Position{Line: 1, Column: 1}
 
-	// Build: local x = 5
-	valX := factory.Literal(pos, "number", int64(5))
-	stmt1 := factory.LocalAssignment(pos, []string{"x"}, []ast.TypeNode{nil}, []ast.Expr{valX})
+    // Build: local x = 5
+    valX := factory.Literal(pos, "number", int64(5))
+    stmt1 := factory.LocalAssignment(pos, []string{"x"}, []ast.TypeNode{nil}, []ast.Expr{valX})
 
-	// Build: local y = 6
-	valY := factory.Literal(pos, "number", int64(6))
-	stmt2 := factory.LocalAssignment(pos, []string{"y"}, []ast.TypeNode{nil}, []ast.Expr{valY})
+    // Build: print(x)
+    identPrint := factory.Identifier(pos, "print")
+    identX := factory.Identifier(pos, "x")
+    callPrint := factory.FunctionCall(pos, identPrint, []ast.Expr{identX})
+    stmt2 := factory.ExpressionStatement(pos, callPrint)
 
-	// Build: print(x + 12 - y)
-	identPrint := factory.Identifier(pos, "print")
-	identX := factory.Identifier(pos, "x")
-	identY := factory.Identifier(pos, "y")
-	val12 := factory.Literal(pos, "number", int64(12))
-	addExpr := factory.BinaryOp(pos, identX, "+", val12)
-	subExpr := factory.BinaryOp(pos, addExpr, "-", identY)
-	callPrint := factory.FunctionCall(pos, identPrint, []ast.Expr{subExpr})
-	stmt3 := factory.ExpressionStatement(pos, callPrint)
+    program := factory.Program(pos, []ast.Stmt{stmt1, stmt2})
+    
+    printer := visitors.NewPrinter()
+    fmt.Println(printer.Print(program))
+}
+```
 
-	// Combine into a Program Node
-	program := factory.Program(pos, []ast.Stmt{stmt1, stmt2, stmt3})
+## Complex Nodes (Functional Builders)
 
-	// Print reconstructed code
-	printer := visitors.NewPrinter()
-	fmt.Println(printer.Print(program))
+For complex nodes with optional branches, parameters, or types (like Functions, If Statements, and Type Aliases), the factory uses the idiomatic Go Functional Options pattern. This keeps your construction logic clean and strict.
+
+```Go
+package main
+
+import (
+    "fmt"
+    "github.com/Wh1teSlash/luau-parser/ast"
+)
+
+func main() {
+    factory := ast.NewFactory()
+    pos := ast.Position{Line: 1, Column: 1}
+
+    // 1. Building a complex generic exported Type Alias
+    // export type Map<K, V> = table
+    tableType := factory.TableType(pos, nil)
+    typeAlias := factory.TypeAlias(pos, "Map", tableType, 
+        ast.AsExported(), 
+        ast.WithTypeGenerics("K", "V"),
+    )
+
+    // 2. Building an If Statement with an Else block
+    // if true then ... else ... end
+    cond := factory.Literal(pos, "boolean", true)
+    thenBlock := factory.Block(pos, []ast.Stmt{})
+    elseBlock := factory.Block(pos, []ast.Stmt{})
+    
+    ifStmt := factory.IfStatement(pos, cond, thenBlock, 
+        ast.WithStmtElse(elseBlock),
+    )
+
+    // 3. Building a Function Definition
+    // function doMath<T>(val: T): T ... end
+    param := factory.Parameter("val", factory.PrimitiveType(pos, "T"))
+    funcDef := factory.FunctionDef(pos, "doMath", thenBlock,
+        ast.WithDefGenerics("T"),
+        ast.WithDefParams(param),
+        ast.WithDefReturnType(factory.PrimitiveType(pos, "T")),
+    )
 }
 ```

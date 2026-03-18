@@ -95,7 +95,17 @@ func (p *Parser) parseTypeAlias(isExport bool) ast.Stmt {
 
 	typeNode := p.parseType(TYPE_LOWEST)
 
-	return p.factory.TypeAlias(pos, name, generics, typeNode, isExport)
+	var opts []ast.TypeAliasOption
+
+	if isExport {
+		opts = append(opts, ast.AsExported())
+	}
+
+	if len(generics) > 0 {
+		opts = append(opts, ast.WithTypeGenerics(generics...))
+	}
+
+	return p.factory.TypeAlias(pos, name, typeNode, opts...)
 }
 
 func (p *Parser) parseExportStatement() ast.Stmt {
@@ -147,7 +157,14 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 		return p.factory.MetamethodDef(pos, name, params, body)
 	}
 
-	return p.factory.FunctionDef(pos, name, generics, params, body, returnType)
+	return p.factory.FunctionDef(
+		pos,
+		name,
+		body,
+		ast.WithDefGenerics(generics...),
+		ast.WithDefParams(params...),
+		ast.WithDefReturnType(returnType),
+	)
 }
 
 func (p *Parser) parseLocalStatement() ast.Stmt {
@@ -275,7 +292,14 @@ func (p *Parser) parseForStatement() ast.Stmt {
 		p.expectPeek(lexer.DO)
 		p.nextToken()
 
-		return p.factory.ForLoop(pos, names[0], start, end, step, p.parseBlock())
+		return p.factory.ForLoop(
+			pos,
+			names[0],
+			start,
+			end,
+			p.parseBlock(),
+			ast.WithStep(step),
+		)
 	}
 }
 
@@ -381,7 +405,17 @@ func (p *Parser) parseIfStatement() ast.Stmt {
 		p.errors = append(p.errors, fmt.Errorf("expected END to close if statement, got %s", p.curToken.Type))
 	}
 
-	return p.factory.IfStatement(pos, condition, thenBlock, elseIfs, elseBlock)
+	var opts []ast.IfStmtOption
+
+	if len(elseIfs) > 0 {
+		opts = append(opts, ast.WithStmtElseIfs(elseIfs...))
+	}
+
+	if elseBlock != nil {
+		opts = append(opts, ast.WithStmtElse(elseBlock))
+	}
+
+	return p.factory.IfStatement(pos, condition, thenBlock, opts...)
 }
 
 func (p *Parser) parseReturnStatement() ast.Stmt {

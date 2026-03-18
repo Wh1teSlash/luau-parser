@@ -266,16 +266,19 @@ func (f *NodeFactory) TypeCast(pos Position, value Expr, typeNode TypeNode) *Typ
 	return node
 }
 
-func (f *NodeFactory) IfExpr(pos Position, condition Expr, then Expr, elseIfs []*ElseIfExprClause, elseExpr Expr) *IfExpr {
-	if elseIfs == nil {
-		elseIfs = []*ElseIfExprClause{}
-	}
+func (f *NodeFactory) IfExpr(pos Position, condition Expr, then Expr, opts ...IfExprOption) *IfExpr {
 	node := f.ifExprs.Alloc()
 	node.Position = pos
 	node.Condition = condition
 	node.Then = then
-	node.ElseIfs = elseIfs
-	node.Else = elseExpr
+
+	node.ElseIfs = []*ElseIfExprClause{}
+	node.Else = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
+
 	return node
 }
 
@@ -340,16 +343,20 @@ func (f *NodeFactory) LocalAssignment(pos Position, names []string, types []Type
 	return node
 }
 
-func (f *NodeFactory) IfStatement(pos Position, condition Expr, then *Block, elseIfs []*ElseIfClause, elseBlock *Block) *IfStatement {
-	if elseIfs == nil {
-		elseIfs = []*ElseIfClause{}
-	}
+func (f *NodeFactory) IfStatement(pos Position, condition Expr, then *Block, opts ...IfStmtOption) *IfStatement {
 	node := f.ifStatements.Alloc()
+
 	node.Position = pos
 	node.Condition = condition
 	node.Then = then
-	node.ElseIfs = elseIfs
-	node.Else = elseBlock
+
+	node.ElseIfs = []*ElseIfClause{}
+	node.Else = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
+
 	return node
 }
 
@@ -369,14 +376,18 @@ func (f *NodeFactory) RepeatLoop(pos Position, body *Block, condition Expr) *Rep
 	return node
 }
 
-func (f *NodeFactory) ForLoop(pos Position, variable string, start Expr, end Expr, step Expr, body *Block) *ForLoop {
+func (f *NodeFactory) ForLoop(pos Position, variable string, start Expr, end Expr, body *Block, opts ...ForLoopOption) *ForLoop {
 	node := f.forLoops.Alloc()
 	node.Position = pos
 	node.Variable = variable
 	node.Start = start
 	node.End = end
-	node.Step = step
 	node.Body = body
+	node.Step = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
 	return node
 }
 
@@ -402,20 +413,21 @@ func (f *NodeFactory) DoBlock(pos Position, body *Block) *DoBlock {
 	return node
 }
 
-func (f *NodeFactory) FunctionDef(pos Position, name string, generics []string, params []*Parameter, body *Block, returnType TypeNode) *FunctionDef {
-	if generics == nil {
-		generics = []string{}
-	}
-	if params == nil {
-		params = []*Parameter{}
-	}
+func (f *NodeFactory) FunctionDef(pos Position, name string, body *Block, opts ...FunctionDefOption) *FunctionDef {
 	node := f.functionDefs.Alloc()
+
 	node.Position = pos
 	node.Name = name
-	node.Generics = generics
-	node.Parameters = params
 	node.Body = body
-	node.ReturnType = returnType
+
+	node.Generics = []string{}
+	node.Parameters = []*Parameter{}
+	node.ReturnType = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
+
 	return node
 }
 
@@ -458,16 +470,20 @@ func (f *NodeFactory) ContinueStatement(pos Position) *ContinueStatement {
 	return node
 }
 
-func (f *NodeFactory) TypeAlias(pos Position, name string, generics []string, typeNode TypeNode, isExport bool) *TypeAlias {
-	if generics == nil {
-		generics = []string{}
-	}
+func (f *NodeFactory) TypeAlias(pos Position, name string, typeNode TypeNode, opts ...TypeAliasOption) *TypeAlias {
 	node := f.typeAliases.Alloc()
+
 	node.Position = pos
 	node.Name = name
-	node.Generics = generics
 	node.Type = typeNode
-	node.IsExport = isExport
+
+	node.Generics = []string{}
+	node.IsExport = false
+
+	for _, opt := range opts {
+		opt(node)
+	}
+
 	return node
 }
 
