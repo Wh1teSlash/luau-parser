@@ -154,6 +154,8 @@ func (p *Parser) parseFunctionExpr() ast.Expr {
 		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
 	}
 
+	expr.Generics = p.parseGenericParams()
+
 	params, returnType := p.parseFunctionSignature()
 
 	expr.Parameters = params

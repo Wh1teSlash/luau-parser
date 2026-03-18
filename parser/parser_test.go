@@ -710,3 +710,40 @@ func TestLuauTypeAliasesAndContinue(t *testing.T) {
 		t.Errorf("Expected ContinueStatement inside loop body, got=%T", forLoop.Body.Statements[0])
 	}
 }
+
+func TestLuauGenerics(t *testing.T) {
+	input := `
+		type Map<K, V> = { [K]: V }
+
+		function reverse<T>(arr: {T}): {T}
+			return arr
+		end
+
+		local function id<Value>(v: Value): Value
+			return v
+		end
+	`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Body) != 3 {
+		t.Fatalf("Expected 3 statements, got %d", len(program.Body))
+	}
+
+	typeAlias := program.Body[0].(*ast.TypeAlias)
+	if len(typeAlias.Generics) != 2 || typeAlias.Generics[0] != "K" || typeAlias.Generics[1] != "V" {
+		t.Errorf("Expected generics [K, V], got %v", typeAlias.Generics)
+	}
+
+	funcDef := program.Body[1].(*ast.FunctionDef)
+	if len(funcDef.Generics) != 1 || funcDef.Generics[0] != "T" {
+		t.Errorf("Expected generic [T], got %v", funcDef.Generics)
+	}
+
+	localFunc := program.Body[2].(*ast.LocalFunction)
+	if len(localFunc.Generics) != 1 || localFunc.Generics[0] != "Value" {
+		t.Errorf("Expected generic [Value], got %v", localFunc.Generics)
+	}
+}

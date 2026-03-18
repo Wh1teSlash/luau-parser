@@ -103,6 +103,7 @@ type TableField struct {
 
 type FunctionExpr struct {
 	BaseNode
+	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
 	ReturnType *TypeAnnotation

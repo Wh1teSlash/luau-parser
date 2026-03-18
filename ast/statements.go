@@ -99,6 +99,7 @@ func (d *DoBlock) statementNode()       {}
 type FunctionDef struct {
 	BaseNode
 	Name       string
+	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
 	ReturnType *TypeAnnotation
@@ -113,6 +114,7 @@ func (f *FunctionDef) statementNode()       {}
 type LocalFunction struct {
 	BaseNode
 	Name       string
+	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
 	ReturnType *TypeAnnotation
@@ -152,6 +154,7 @@ func (c *ContinueStatement) statementNode()       {}
 type TypeAlias struct {
 	BaseNode
 	Name     string
+	Generics []string
 	Type     *TypeAnnotation
 	IsExport bool
 }
