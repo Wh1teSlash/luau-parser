@@ -16,7 +16,7 @@ func (a *Assignment) statementNode()       {}
 type LocalAssignment struct {
 	BaseNode
 	Names  []string
-	Types  []*TypeAnnotation
+	Types  []TypeNode
 	Values []Expr
 }
 
@@ -102,7 +102,7 @@ type FunctionDef struct {
 	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
-	ReturnType *TypeAnnotation
+	ReturnType TypeNode
 }
 
 func (f *FunctionDef) String() string {
@@ -117,7 +117,7 @@ type LocalFunction struct {
 	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
-	ReturnType *TypeAnnotation
+	ReturnType TypeNode
 }
 
 func (l *LocalFunction) String() string {
@@ -155,7 +155,7 @@ type TypeAlias struct {
 	BaseNode
 	Name     string
 	Generics []string
-	Type     *TypeAnnotation
+	Type     TypeNode
 	IsExport bool
 }
 

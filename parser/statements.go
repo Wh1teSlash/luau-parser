@@ -43,44 +43,6 @@ func (p *Parser) parseStatement() ast.Stmt {
 	}
 }
 
-func (p *Parser) parseTypeAnnotation() *ast.TypeAnnotation {
-	typeStr := ""
-	nesting := 0
-
-	for p.curToken.Type != lexer.EOF {
-		tok := p.curToken.Type
-
-		switch tok {
-		case lexer.LBRACE, lexer.LPAREN, lexer.LBRACKET, lexer.LT:
-			nesting++
-		case lexer.RBRACE, lexer.RPAREN, lexer.RBRACKET, lexer.GT:
-			if nesting > 0 {
-				nesting--
-			}
-		}
-
-		if typeStr != "" && tok != lexer.COMMA && tok != lexer.COLON && tok != lexer.RBRACE && tok != lexer.RBRACKET && tok != lexer.RPAREN && tok != lexer.GT && typeStr[len(typeStr)-1] != '{' && typeStr[len(typeStr)-1] != '[' && typeStr[len(typeStr)-1] != '(' && typeStr[len(typeStr)-1] != '<' {
-			typeStr += " "
-		}
-		typeStr += p.curToken.Literal
-
-		if nesting == 0 {
-			peek := p.peekToken.Type
-			cur := p.curToken.Type
-
-			if cur == lexer.PIPE || cur == lexer.AMPERSAND || cur == lexer.ARROW || cur == lexer.DOT || cur == lexer.QUESTION {
-			} else if peek == lexer.COMMA || peek == lexer.RPAREN || peek == lexer.ASSIGN || isStatementToken(peek) || peek == lexer.EOF {
-				break
-			} else if peek == lexer.IDENT {
-				break
-			}
-		}
-		p.nextToken()
-	}
-
-	return &ast.TypeAnnotation{Type: typeStr}
-}
-
 func (p *Parser) parseGenericParams() []string {
 	var generics []string
 
@@ -132,7 +94,7 @@ func (p *Parser) parseTypeAlias(isExport bool) ast.Stmt {
 	}
 	p.nextToken()
 
-	typeNode := p.parseTypeAnnotation()
+	typeNode := p.parseType(TYPE_LOWEST)
 
 	return &ast.TypeAlias{
 		BaseNode: ast.BaseNode{Position: pos},
@@ -140,15 +102,6 @@ func (p *Parser) parseTypeAlias(isExport bool) ast.Stmt {
 		Generics: generics,
 		Type:     typeNode,
 		IsExport: isExport,
-	}
-}
-
-func isStatementToken(t lexer.TokenType) bool {
-	switch t {
-	case lexer.LOCAL, lexer.IF, lexer.WHILE, lexer.REPEAT, lexer.FOR, lexer.FUNCTION, lexer.RETURN, lexer.BREAK, lexer.CONTINUE, lexer.TYPE, lexer.EXPORT, lexer.DO:
-		return true
-	default:
-		return false
 	}
 }
 
@@ -191,6 +144,7 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 	generics := p.parseGenericParams()
 
 	params, returnType := p.parseFunctionSignature()
+	p.nextToken()
 	body := p.parseBlock()
 
 	if p.curToken.Type != lexer.END {
@@ -230,6 +184,7 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		name := p.curToken.Literal
 		generics := p.parseGenericParams()
 		params, returnType := p.parseFunctionSignature()
+		p.nextToken()
 		body := p.parseBlock()
 
 		if p.curToken.Type != lexer.END {
@@ -250,7 +205,7 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
 		Names:    []string{},
 		Values:   []ast.Expr{},
-		Types:    []*ast.TypeAnnotation{},
+		Types:    []ast.TypeNode{},
 	}
 
 	for {
@@ -261,30 +216,35 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		}
 		stmt.Names = append(stmt.Names, p.curToken.Literal)
 
-		if p.peekToken.Type != lexer.COMMA {
-			break
-		}
-		p.nextToken()
-	}
-
-	if p.peekToken.Type != lexer.ASSIGN {
-		return stmt
-	}
-
-	p.nextToken()
-	p.nextToken()
-
-	for {
-		val := p.parseExpression(LOWEST)
-		if val != nil {
-			stmt.Values = append(stmt.Values, val)
+		if p.peekToken.Type == lexer.COLON {
+			p.nextToken()
+			p.nextToken()
+			stmt.Types = append(stmt.Types, p.parseType(TYPE_LOWEST))
+		} else {
+			stmt.Types = append(stmt.Types, nil)
 		}
 
 		if p.peekToken.Type != lexer.COMMA {
 			break
 		}
 		p.nextToken()
+	}
+
+	if p.peekToken.Type == lexer.ASSIGN {
 		p.nextToken()
+		p.nextToken()
+
+		for {
+			val := p.parseExpression(LOWEST)
+			if val != nil {
+				stmt.Values = append(stmt.Values, val)
+			}
+			if p.peekToken.Type != lexer.COMMA {
+				break
+			}
+			p.nextToken()
+			p.nextToken()
+		}
 	}
 
 	return stmt
@@ -401,7 +361,7 @@ func (p *Parser) parseFunctionCall(function ast.Expr) ast.Expr {
 	return call
 }
 
-func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, *ast.TypeAnnotation) {
+func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, ast.TypeNode) {
 	params := []*ast.Parameter{}
 	p.expectPeek(lexer.LPAREN)
 
@@ -412,7 +372,7 @@ func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, *ast.TypeAnnotation
 			if p.peekToken.Type == lexer.COLON {
 				p.nextToken()
 				p.nextToken()
-				param.Type = p.parseTypeAnnotation()
+				param.Type = p.parseType(TYPE_LOWEST)
 			}
 			params = append(params, param)
 
@@ -423,14 +383,16 @@ func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, *ast.TypeAnnotation
 			p.nextToken()
 		}
 	}
-	p.expectPeek(lexer.RPAREN)
-	p.nextToken()
 
-	var returnType *ast.TypeAnnotation
-	if p.curToken.Type == lexer.COLON || p.curToken.Type == lexer.ARROW {
+	if p.peekToken.Type == lexer.RPAREN {
 		p.nextToken()
-		returnType = p.parseTypeAnnotation()
+	}
+
+	var returnType ast.TypeNode
+	if p.peekToken.Type == lexer.COLON || p.peekToken.Type == lexer.ARROW {
 		p.nextToken()
+		p.nextToken()
+		returnType = p.parseType(TYPE_LOWEST)
 	}
 
 	return params, returnType

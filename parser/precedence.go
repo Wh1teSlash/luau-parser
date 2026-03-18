@@ -18,6 +18,20 @@ const (
 	INDEX       // array[index], obj.field
 )
 
+const (
+	_ int = iota
+	TYPE_LOWEST
+	TYPE_UNION        // |
+	TYPE_INTERSECTION // &
+	TYPE_OPTIONAL     // ?
+)
+
+var typePrecedences = map[lexer.TokenType]int{
+	lexer.PIPE:      TYPE_UNION,
+	lexer.AMPERSAND: TYPE_INTERSECTION,
+	lexer.QUESTION:  TYPE_OPTIONAL,
+}
+
 var precedences = map[lexer.TokenType]int{
 	lexer.OR:           OR,
 	lexer.AND:          AND,

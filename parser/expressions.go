@@ -191,6 +191,7 @@ func (p *Parser) parseFunctionExpr() ast.Expr {
 
 	expr.Parameters = params
 	expr.ReturnType = returnType
+	p.nextToken()
 	expr.Body = p.parseBlock()
 
 	return expr
@@ -332,13 +333,7 @@ func (p *Parser) parseTypeCast(left ast.Expr) ast.Expr {
 	}
 
 	p.nextToken()
-
-	if p.curToken.Type != lexer.IDENT {
-		p.errors = append(p.errors, fmt.Errorf("expected type identifier after ::, got %s", p.curToken.Type))
-		return nil
-	}
-
-	expr.Type = &ast.TypeAnnotation{Type: p.curToken.Literal}
+	expr.Type = p.parseType(TYPE_LOWEST)
 
 	return expr
 }

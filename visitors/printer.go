@@ -45,7 +45,7 @@ func (p *Printer) printParams(params []*ast.Parameter) {
 		p.write(param.Name)
 		if param.Type != nil {
 			p.write(": ")
-			p.write(param.Type.Type)
+			param.Type.Accept(p)
 		}
 		if i < len(params)-1 {
 			p.write(", ")
@@ -106,7 +106,7 @@ func (p *Printer) VisitLocalAssignment(node *ast.LocalAssignment) any {
 		p.write(name)
 		if i < len(node.Types) && node.Types[i] != nil {
 			p.write(": ")
-			p.write(node.Types[i].Type)
+			node.Types[i].Accept(p)
 		}
 		if i < len(node.Names)-1 {
 			p.write(", ")
@@ -243,7 +243,7 @@ func (p *Printer) VisitFunctionDef(node *ast.FunctionDef) any {
 
 	if node.ReturnType != nil {
 		p.write(": ")
-		p.write(node.ReturnType.Type)
+		node.ReturnType.Accept(p)
 	}
 	p.write("\n")
 
@@ -264,7 +264,7 @@ func (p *Printer) VisitLocalFunction(node *ast.LocalFunction) any {
 
 	if node.ReturnType != nil {
 		p.write(": ")
-		p.write(node.ReturnType.Type)
+		node.ReturnType.Accept(p)
 	}
 	p.write("\n")
 
@@ -305,7 +305,7 @@ func (p *Printer) VisitTypeAlias(node *ast.TypeAlias) any {
 		p.write("export ")
 	}
 	p.write(fmt.Sprintf("type %s = ", node.Name))
-	p.write(node.Type.Type)
+	node.Type.Accept(p)
 	return nil
 }
 
@@ -419,7 +419,7 @@ func (p *Printer) VisitFunctionExpr(node *ast.FunctionExpr) any {
 
 	if node.ReturnType != nil {
 		p.write(": ")
-		p.write(node.ReturnType.Type)
+		node.ReturnType.Accept(p)
 	}
 	p.write("\n")
 
@@ -435,7 +435,9 @@ func (p *Printer) VisitFunctionExpr(node *ast.FunctionExpr) any {
 func (p *Printer) VisitTypeCast(node *ast.TypeCast) any {
 	node.Value.Accept(p)
 	p.write(" :: ")
-	p.write(node.Type.Type)
+	if node.Type != nil {
+		node.Type.Accept(p)
+	}
 	return nil
 }
 
@@ -487,5 +489,55 @@ func (p *Printer) VisitInterpolatedString(node *ast.InterpolatedString) any {
 	}
 
 	p.write("`")
+	return nil
+}
+
+func (p *Printer) VisitPrimitiveType(node *ast.PrimitiveType) any {
+	p.write(node.Name)
+	return nil
+}
+
+func (p *Printer) VisitUnionType(node *ast.UnionType) any {
+	node.Left.Accept(p)
+	p.write(" | ")
+	node.Right.Accept(p)
+	return nil
+}
+
+func (p *Printer) VisitOptionalType(node *ast.OptionalType) any {
+	node.BaseType.Accept(p)
+	p.write("?")
+	return nil
+}
+
+func (p *Printer) VisitGenericType(node *ast.GenericType) any {
+	node.BaseType.Accept(p)
+	p.write("<")
+	for i, t := range node.Types {
+		t.Accept(p)
+		if i < len(node.Types)-1 {
+			p.write(", ")
+		}
+	}
+	p.write(">")
+	return nil
+}
+
+func (p *Printer) VisitTableType(node *ast.TableType) any {
+	p.write("{ ")
+	for i, field := range node.Fields {
+		if field.IsAccess {
+			p.write("[")
+			field.Key.Accept(p)
+			p.write("]: ")
+		} else if field.KeyName != "" {
+			p.write(field.KeyName + ": ")
+		}
+		field.Value.Accept(p)
+		if i < len(node.Fields)-1 {
+			p.write(", ")
+		}
+	}
+	p.write(" }")
 	return nil
 }

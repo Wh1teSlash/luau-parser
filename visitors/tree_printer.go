@@ -36,11 +36,12 @@ func (p *TreePrinter) printParams(params []*ast.Parameter) {
 	p.writeLine("Parameters:")
 	p.indent++
 	for _, param := range params {
-		typeStr := ""
+		p.writeLine("- %s:", param.Name)
 		if param.Type != nil {
-			typeStr = fmt.Sprintf(" (Type: %s)", param.Type.Type)
+			p.indent++
+			param.Type.Accept(p)
+			p.indent--
 		}
-		p.writeLine("- %s%s", param.Name, typeStr)
 	}
 	p.indent--
 }
@@ -231,13 +232,15 @@ func (p *TreePrinter) VisitDoBlock(node *ast.DoBlock) any {
 }
 
 func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
-	retType := ""
-	if node.ReturnType != nil {
-		retType = " -> " + node.ReturnType.Type
-	}
-	p.writeLine("FunctionDef (Name: %s)%s", node.Name, retType)
+	p.writeLine("FunctionDef (Name: %s)", node.Name)
 	p.indent++
 	p.printParams(node.Parameters)
+	if node.ReturnType != nil {
+		p.writeLine("ReturnType:")
+		p.indent++
+		node.ReturnType.Accept(p)
+		p.indent--
+	}
 	p.writeLine("Body:")
 	p.indent++
 	node.Body.Accept(p)
@@ -247,13 +250,18 @@ func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
 }
 
 func (p *TreePrinter) VisitLocalFunction(node *ast.LocalFunction) any {
-	retType := ""
-	if node.ReturnType != nil {
-		retType = " -> " + node.ReturnType.Type
-	}
-	p.writeLine("LocalFunctionDef (Name: %s)%s", node.Name, retType)
+	p.writeLine("LocalFunctionDef (Name: %s)", node.Name)
 	p.indent++
+
 	p.printParams(node.Parameters)
+
+	if node.ReturnType != nil {
+		p.writeLine("ReturnType:")
+		p.indent++
+		node.ReturnType.Accept(p)
+		p.indent--
+	}
+
 	p.writeLine("Body:")
 	p.indent++
 	node.Body.Accept(p)
@@ -285,10 +293,20 @@ func (p *TreePrinter) VisitContinueStatement(node *ast.ContinueStatement) any {
 }
 
 func (p *TreePrinter) VisitTypeAlias(node *ast.TypeAlias) any {
-	p.writeLine("TypeAlias (Export: %t, Name: %s, Type: %s)", node.IsExport, node.Name, node.Type.Type)
+	p.writeLine("TypeAlias (Export: %t, Name: %s)", node.IsExport, node.Name)
+	p.indent++
+
+	if len(node.Generics) > 0 {
+		p.writeLine("Generics: %s", strings.Join(node.Generics, ", "))
+	}
+
+	p.writeLine("Definition:")
+	p.indent++
+	node.Type.Accept(p)
+	p.indent--
+	p.indent--
 	return nil
 }
-
 func (p *TreePrinter) VisitMetamethodDef(node *ast.MetamethodDef) any {
 	p.writeLine("MetamethodDef (Name: %s)", node.Name)
 	p.indent++
@@ -425,13 +443,18 @@ func (p *TreePrinter) VisitTableLiteral(node *ast.TableLiteral) any {
 }
 
 func (p *TreePrinter) VisitFunctionExpr(node *ast.FunctionExpr) any {
-	retType := ""
-	if node.ReturnType != nil {
-		retType = " -> " + node.ReturnType.Type
-	}
-	p.writeLine("FunctionExpr%s", retType)
+	p.writeLine("FunctionExpr")
 	p.indent++
+
 	p.printParams(node.Parameters)
+
+	if node.ReturnType != nil {
+		p.writeLine("ReturnType:")
+		p.indent++
+		node.ReturnType.Accept(p)
+		p.indent--
+	}
+
 	p.writeLine("Body:")
 	p.indent++
 	node.Body.Accept(p)
@@ -441,9 +464,16 @@ func (p *TreePrinter) VisitFunctionExpr(node *ast.FunctionExpr) any {
 }
 
 func (p *TreePrinter) VisitTypeCast(node *ast.TypeCast) any {
-	p.writeLine("TypeCast (To: %s)", node.Type.Type)
+	p.writeLine("TypeCast")
+	p.indent++
+	p.writeLine("Value:")
 	p.indent++
 	node.Value.Accept(p)
+	p.indent--
+	p.writeLine("To Type:")
+	p.indent++
+	node.Type.Accept(p)
+	p.indent--
 	p.indent--
 	return nil
 }
@@ -505,6 +535,71 @@ func (p *TreePrinter) VisitInterpolatedString(node *ast.InterpolatedString) any 
 		}
 	}
 
+	p.indent--
+	return nil
+}
+
+func (p *TreePrinter) VisitPrimitiveType(node *ast.PrimitiveType) any {
+	p.writeLine("PrimitiveType: %s", node.Name)
+	return nil
+}
+
+func (p *TreePrinter) VisitUnionType(node *ast.UnionType) any {
+	p.writeLine("UnionType")
+	p.indent++
+	node.Left.Accept(p)
+	node.Right.Accept(p)
+	p.indent--
+	return nil
+}
+
+func (p *TreePrinter) VisitOptionalType(node *ast.OptionalType) any {
+	p.writeLine("OptionalType (?)")
+	p.indent++
+	node.BaseType.Accept(p)
+	p.indent--
+	return nil
+}
+
+func (p *TreePrinter) VisitGenericType(node *ast.GenericType) any {
+	p.writeLine("GenericType")
+	p.indent++
+	p.writeLine("Base:")
+	p.indent++
+	node.BaseType.Accept(p)
+	p.indent--
+	p.writeLine("Arguments:")
+	p.indent++
+	for _, t := range node.Types {
+		t.Accept(p)
+	}
+	p.indent--
+	p.indent--
+	return nil
+}
+
+func (p *TreePrinter) VisitTableType(node *ast.TableType) any {
+	p.writeLine("TableType")
+	p.indent++
+	for _, field := range node.Fields {
+		if field.IsAccess {
+			p.writeLine("Indexer:")
+			p.indent++
+			field.Key.Accept(p)
+			field.Value.Accept(p)
+			p.indent--
+		} else if field.KeyName != "" {
+			p.writeLine("Field: %s", field.KeyName)
+			p.indent++
+			field.Value.Accept(p)
+			p.indent--
+		} else {
+			p.writeLine("ArrayPart:")
+			p.indent++
+			field.Value.Accept(p)
+			p.indent--
+		}
+	}
 	p.indent--
 	return nil
 }

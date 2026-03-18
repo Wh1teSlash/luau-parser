@@ -10,6 +10,9 @@ import (
 type prefixParseFn func() ast.Expr
 type infixParseFn func(ast.Expr) ast.Expr
 
+type prefixTypeFn func() ast.TypeNode
+type infixTypeFn func(ast.TypeNode) ast.TypeNode
+
 type Parser struct {
 	l      *lexer.Lexer
 	errors []error
@@ -19,6 +22,9 @@ type Parser struct {
 
 	prefixParseFns map[lexer.TokenType]prefixParseFn
 	infixParseFns  map[lexer.TokenType]infixParseFn
+
+	prefixTypeFns map[lexer.TokenType]prefixTypeFn
+	infixTypeFns  map[lexer.TokenType]infixTypeFn
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -51,6 +57,19 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.STRING, p.parseFunctionCallStringOrTable)
 	p.registerInfix(lexer.LBRACE, p.parseFunctionCallStringOrTable)
 	p.registerPrefix(lexer.INTERP_BEGIN, p.parseInterpolatedString)
+
+	p.prefixTypeFns = make(map[lexer.TokenType]prefixTypeFn)
+	p.infixTypeFns = make(map[lexer.TokenType]infixTypeFn)
+
+	p.prefixTypeFns[lexer.IDENT] = p.parsePrimitiveType
+	p.prefixTypeFns[lexer.LBRACE] = p.parseTableType
+	p.prefixTypeFns[lexer.LPAREN] = p.parseParenType
+
+	p.infixTypeFns[lexer.PIPE] = p.parseUnionType
+	p.infixTypeFns[lexer.QUESTION] = p.parseOptionalType
+	p.infixTypeFns[lexer.LT] = p.parseGenericType
+
+	typePrecedences[lexer.LT] = 10
 
 	binaryOps := []lexer.TokenType{
 		lexer.PLUS, lexer.MINUS, lexer.SLASH, lexer.ASTERISK,
@@ -118,11 +137,31 @@ func (p *Parser) ParseProgram() *ast.Program {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Body = append(program.Body, stmt)
+		} else {
+			p.synchronize()
 		}
 		p.nextToken()
 	}
 
 	return program
+}
+
+func (p *Parser) synchronize() {
+	p.nextToken()
+
+	for p.curToken.Type != lexer.EOF {
+		if p.curToken.Type == lexer.SEMICOLON {
+			return
+		}
+
+		switch p.peekToken.Type {
+		case lexer.LOCAL, lexer.FOR, lexer.WHILE, lexer.REPEAT, lexer.IF,
+			lexer.RETURN, lexer.FUNCTION, lexer.TYPE, lexer.EXPORT, lexer.DO:
+			return
+		}
+
+		p.nextToken()
+	}
 }
 
 func (p *Parser) parseBlock() *ast.Block {

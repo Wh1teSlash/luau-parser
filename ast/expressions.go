@@ -106,7 +106,7 @@ type FunctionExpr struct {
 	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
-	ReturnType *TypeAnnotation
+	ReturnType TypeNode
 }
 
 func (f *FunctionExpr) String() string {
@@ -117,7 +117,7 @@ func (f *FunctionExpr) expressionNode()      {}
 
 type Parameter struct {
 	Name string
-	Type *TypeAnnotation
+	Type TypeNode
 }
 
 type TypeAnnotation struct {
@@ -127,7 +127,7 @@ type TypeAnnotation struct {
 type TypeCast struct {
 	BaseNode
 	Value Expr
-	Type  *TypeAnnotation
+	Type  TypeNode
 }
 
 func (t *TypeCast) String() string       { return "TypeCast" }

@@ -71,4 +71,11 @@ type Visitor interface {
 	VisitProgram(node *Program) any
 	VisitComment(node *Comment) any
 	VisitModule(node *Module) any
+
+	// Types
+	VisitPrimitiveType(node *PrimitiveType) any
+	VisitUnionType(node *UnionType) any
+	VisitOptionalType(node *OptionalType) any
+	VisitTableType(node *TableType) any
+	VisitGenericType(node *GenericType) any
 }
