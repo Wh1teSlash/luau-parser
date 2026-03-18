@@ -231,3 +231,7 @@ func (t *ZeroLiteralsTransformer) TransformLiteral(node *ast.Literal) ast.Expr {
 	return node
 }
 ```
+
+# Example Projects
+
+- [Luau minifier/beautifier (luau-squeeze)](https://github.com/Wh1teSlash/luau-squeeze)
