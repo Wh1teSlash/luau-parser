@@ -468,3 +468,24 @@ func (p *Printer) VisitExpressionStatement(node *ast.ExpressionStatement) any {
 	node.Expr.Accept(p)
 	return nil
 }
+
+func (p *Printer) VisitInterpolatedString(node *ast.InterpolatedString) any {
+	p.write("`")
+
+	if len(node.Segments) > 0 {
+		p.write(node.Segments[0])
+	}
+
+	for i, expr := range node.Expressions {
+		p.write("{")
+		expr.Accept(p)
+		p.write("}")
+
+		if i+1 < len(node.Segments) {
+			p.write(node.Segments[i+1])
+		}
+	}
+
+	p.write("`")
+	return nil
+}

@@ -489,3 +489,22 @@ func (p *TreePrinter) VisitExpressionStatement(node *ast.ExpressionStatement) an
 	p.indent--
 	return nil
 }
+
+func (p *TreePrinter) VisitInterpolatedString(node *ast.InterpolatedString) any {
+	p.writeLine("InterpolatedString")
+	p.indent++
+
+	for i, segment := range node.Segments {
+		p.writeLine("Segment: %q", segment)
+
+		if i < len(node.Expressions) {
+			p.writeLine("Expression:")
+			p.indent++
+			node.Expressions[i].Accept(p)
+			p.indent--
+		}
+	}
+
+	p.indent--
+	return nil
+}

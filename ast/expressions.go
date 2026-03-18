@@ -167,3 +167,13 @@ type ParenExpr struct {
 func (p *ParenExpr) String() string       { return "ParenExpr" }
 func (p *ParenExpr) Accept(v Visitor) any { return v.VisitParenExpr(p) }
 func (p *ParenExpr) expressionNode()      {}
+
+type InterpolatedString struct {
+	BaseNode
+	Segments    []string
+	Expressions []Expr
+}
+
+func (i *InterpolatedString) String() string       { return "InterpolatedString" }
+func (i *InterpolatedString) Accept(v Visitor) any { return v.VisitInterpolatedString(i) }
+func (i *InterpolatedString) expressionNode()      {}

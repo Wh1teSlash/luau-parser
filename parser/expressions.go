@@ -29,6 +29,37 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	return leftExp
 }
 
+func (p *Parser) parseInterpolatedString() ast.Expr {
+	node := &ast.InterpolatedString{
+		BaseNode:    ast.BaseNode{Position: p.curToken.Pos},
+		Segments:    []string{p.curToken.Literal},
+		Expressions: []ast.Expr{},
+	}
+
+	for {
+		p.nextToken()
+
+		expr := p.parseExpression(LOWEST)
+		if expr != nil {
+			node.Expressions = append(node.Expressions, expr)
+		}
+
+		if p.peekToken.Type == lexer.INTERP_MID {
+			p.nextToken()
+			node.Segments = append(node.Segments, p.curToken.Literal)
+		} else if p.peekToken.Type == lexer.INTERP_END {
+			p.nextToken()
+			node.Segments = append(node.Segments, p.curToken.Literal)
+			break
+		} else {
+			p.errors = append(p.errors, fmt.Errorf("expected INTERP_MID or INTERP_END, got %s", p.peekToken.Type))
+			break
+		}
+	}
+
+	return node
+}
+
 func (p *Parser) parseIdentifier() ast.Expr {
 	return &ast.Identifier{
 		BaseNode: ast.BaseNode{Position: p.curToken.Pos},

@@ -85,6 +85,10 @@ const (
 
 	EXPORT TokenType = "EXPORT"
 	TYPE   TokenType = "TYPE"
+
+	INTERP_BEGIN TokenType = "INTERP_BEGIN"
+	INTERP_MID   TokenType = "INTERP_MID"
+	INTERP_END   TokenType = "INTERP_END"
 )
 
 type Token struct {

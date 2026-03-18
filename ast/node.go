@@ -45,6 +45,7 @@ type Visitor interface {
 	VisitIfExpr(node *IfExpr) any
 	VisitVarArgs(node *VarArgs) any
 	VisitParenExpr(node *ParenExpr) any
+	VisitInterpolatedString(node *InterpolatedString) any
 
 	// Statements
 	VisitAssignment(node *Assignment) any

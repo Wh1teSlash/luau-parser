@@ -10,15 +10,17 @@ type Lexer struct {
 	readPosition int
 	ch           byte
 
-	line   int
-	column int
+	line        int
+	column      int
+	interpStack []int
 }
 
 func New(input string) *Lexer {
 	l := &Lexer{
-		input:  input,
-		line:   1,
-		column: 0,
+		input:       input,
+		line:        1,
+		column:      0,
+		interpStack: []int{},
 	}
 	l.readChar()
 	return l
@@ -184,9 +186,21 @@ func (l *Lexer) NextToken() Token {
 	case ')':
 		tok = Token{Type: RPAREN, Literal: string(l.ch), Pos: pos}
 	case '{':
+		if len(l.interpStack) > 0 {
+			l.interpStack[len(l.interpStack)-1]++
+		}
 		tok = Token{Type: LBRACE, Literal: string(l.ch), Pos: pos}
 	case '}':
+		if len(l.interpStack) > 0 {
+			l.interpStack[len(l.interpStack)-1]--
+			if l.interpStack[len(l.interpStack)-1] == 0 {
+				l.interpStack = l.interpStack[:len(l.interpStack)-1]
+				return l.readInterpolatedStringPart(true)
+			}
+		}
 		tok = Token{Type: RBRACE, Literal: string(l.ch), Pos: pos}
+	case '`':
+		return l.readInterpolatedStringPart(false)
 	case '[':
 		if l.peekChar() == '[' || l.peekChar() == '=' {
 			tok.Type = STRING
@@ -226,6 +240,53 @@ func (l *Lexer) NextToken() Token {
 
 	l.readChar()
 	return tok
+}
+
+func (l *Lexer) readInterpolatedStringPart(isMid bool) Token {
+	pos := ast.Position{Line: l.line, Column: l.column}
+
+	l.readChar()
+	strStart := l.position
+
+	for l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar()
+			l.readChar()
+			continue
+		}
+
+		if l.ch == '`' {
+			literal := l.input[strStart:l.position]
+			l.readChar()
+
+			tokType := INTERP_END
+			if !isMid {
+				tokType = STRING
+			}
+			return Token{Type: tokType, Literal: literal, Pos: pos}
+		}
+
+		if l.ch == '{' {
+			literal := l.input[strStart:l.position]
+			l.readChar()
+
+			l.interpStack = append(l.interpStack, 1)
+
+			tokType := INTERP_MID
+			if !isMid {
+				tokType = INTERP_BEGIN
+			}
+			return Token{Type: tokType, Literal: literal, Pos: pos}
+		}
+
+		if l.ch == '\n' {
+			l.line++
+			l.column = 0
+		}
+		l.readChar()
+	}
+
+	return Token{Type: ILLEGAL, Literal: l.input[strStart:l.position], Pos: pos}
 }
 
 func (l *Lexer) skipWhitespace() {

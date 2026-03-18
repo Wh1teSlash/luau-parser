@@ -747,3 +747,29 @@ func TestLuauGenerics(t *testing.T) {
 		t.Errorf("Expected generic [Value], got %v", localFunc.Generics)
 	}
 }
+
+func TestInterpolatedStrings(t *testing.T) {
+	input := "local greeting = `Hello {\"World\"}, I am {10 + 10} years old!`"
+
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	assign := program.Body[0].(*ast.LocalAssignment)
+	interp, ok := assign.Values[0].(*ast.InterpolatedString)
+	if !ok {
+		t.Fatalf("Expected InterpolatedString, got %T", assign.Values[0])
+	}
+
+	if len(interp.Segments) != 3 {
+		t.Fatalf("Expected 3 string segments, got %d", len(interp.Segments))
+	}
+	if interp.Segments[0] != "Hello " || interp.Segments[1] != ", I am " || interp.Segments[2] != " years old!" {
+		t.Errorf("Segments mismatch: %v", interp.Segments)
+	}
+
+	if len(interp.Expressions) != 2 {
+		t.Fatalf("Expected 2 expressions, got %d", len(interp.Expressions))
+	}
+}
