@@ -40,4 +40,6 @@ var precedences = map[lexer.TokenType]int{
 	lexer.DOT:          INDEX,
 	lexer.COLON:        CALL,
 	lexer.DOUBLE_COLON: CALL,
+	lexer.STRING:       CALL,
+	lexer.LBRACE:       CALL,
 }

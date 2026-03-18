@@ -335,3 +335,20 @@ func (p *Parser) parseIfExpr() ast.Expr {
 func (p *Parser) parseVarArgs() ast.Expr {
 	return &ast.VarArgs{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
 }
+
+func (p *Parser) parseFunctionCallStringOrTable(left ast.Expr) ast.Expr {
+	call := &ast.FunctionCall{
+		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
+		Function: left,
+		Args:     []ast.Expr{},
+	}
+
+	switch p.curToken.Type {
+	case lexer.STRING:
+		call.Args = append(call.Args, p.parseStringLiteral())
+	case lexer.LBRACE:
+		call.Args = append(call.Args, p.parseTableLiteral())
+	}
+
+	return call
+}

@@ -48,6 +48,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.DOUBLE_COLON, p.parseTypeCast)
 	p.registerPrefix(lexer.IF, p.parseIfExpr)
 	p.registerPrefix(lexer.ELLIPSIS, p.parseVarArgs)
+	p.registerInfix(lexer.STRING, p.parseFunctionCallStringOrTable)
+	p.registerInfix(lexer.LBRACE, p.parseFunctionCallStringOrTable)
 
 	binaryOps := []lexer.TokenType{
 		lexer.PLUS, lexer.MINUS, lexer.SLASH, lexer.ASTERISK,

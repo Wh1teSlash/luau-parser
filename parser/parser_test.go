@@ -577,3 +577,136 @@ func TestParserErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestStandardLuaFeatures(t *testing.T) {
+	input := `
+		do
+			local x = 1
+		end
+
+		if a then
+			print(1)
+		elseif b then
+			print(2)
+		else
+			print(3)
+		end
+
+		local function helper() end
+
+		print "hello"
+		print {1, 2, 3}
+	`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Body) != 5 {
+		t.Fatalf("Expected 5 statements, got %d", len(program.Body))
+	}
+
+	_, ok := program.Body[0].(*ast.DoBlock)
+	if !ok {
+		t.Errorf("Expected DoBlock, got=%T", program.Body[0])
+	}
+
+	ifStmt, ok := program.Body[1].(*ast.IfStatement)
+	if !ok {
+		t.Fatalf("Expected IfStatement, got=%T", program.Body[1])
+	}
+	if len(ifStmt.ElseIfs) != 1 {
+		t.Errorf("Expected 1 ElseIf block, got %d", len(ifStmt.ElseIfs))
+	}
+	if ifStmt.Else == nil {
+		t.Errorf("Expected Else block to not be nil")
+	}
+
+	localFn, ok := program.Body[2].(*ast.LocalFunction)
+	if !ok {
+		t.Errorf("Expected LocalFunction, got=%T", program.Body[2])
+	}
+	if localFn.Name != "helper" {
+		t.Errorf("Expected local function 'helper', got %s", localFn.Name)
+	}
+
+	call1Stmt, ok := program.Body[3].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Expected ExpressionStatement, got=%T", program.Body[3])
+	}
+	call1, ok := call1Stmt.Expr.(*ast.FunctionCall)
+	if !ok || len(call1.Args) != 1 {
+		t.Fatalf("Expected FunctionCall with 1 arg, got=%T", call1Stmt.Expr)
+	}
+	testLiteralObject(t, call1.Args[0], "hello")
+
+	call2Stmt, ok := program.Body[4].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Expected ExpressionStatement, got=%T", program.Body[4])
+	}
+	call2, ok := call2Stmt.Expr.(*ast.FunctionCall)
+	if !ok {
+		t.Fatalf("Expected FunctionCall, got=%T", call2Stmt.Expr)
+	}
+	_, isTable := call2.Args[0].(*ast.TableLiteral)
+	if !isTable {
+		t.Errorf("Expected argument to be TableLiteral, got=%T", call2.Args[0])
+	}
+}
+
+func TestLuauTypeAliasesAndContinue(t *testing.T) {
+	input := `
+		type Point = { x: number, y: number }
+		export type ID = string | number
+
+		for i = 1, 10 do
+			continue
+		end
+	`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Body) != 3 {
+		t.Fatalf("Expected 3 statements, got %d", len(program.Body))
+	}
+
+	typeAlias, ok := program.Body[0].(*ast.TypeAlias)
+	if !ok {
+		t.Fatalf("Expected TypeAlias, got=%T", program.Body[0])
+	}
+	if typeAlias.Name != "Point" {
+		t.Errorf("Expected type alias 'Point', got %s", typeAlias.Name)
+	}
+	if typeAlias.IsExport {
+		t.Errorf("Expected non-exported type 'Point'")
+	}
+
+	exportedType, ok := program.Body[1].(*ast.TypeAlias)
+	if !ok {
+		t.Fatalf("Expected TypeAlias, got=%T", program.Body[1])
+	}
+	if exportedType.Name != "ID" {
+		t.Errorf("Expected type alias 'ID', got %s", exportedType.Name)
+	}
+	if !exportedType.IsExport {
+		t.Errorf("Expected exported type")
+	}
+
+	if exportedType.Type == nil || exportedType.Type.Type != "string | number" {
+		t.Errorf("Expected Type annotation 'string | number'")
+	}
+
+	forLoop, ok := program.Body[2].(*ast.ForLoop)
+	if !ok {
+		t.Fatalf("Expected ForLoop, got=%T", program.Body[2])
+	}
+	if len(forLoop.Body.Statements) != 1 {
+		t.Fatalf("Expected 1 statement in ForLoop body, got %d", len(forLoop.Body.Statements))
+	}
+	_, hasContinue := forLoop.Body.Statements[0].(*ast.ContinueStatement)
+	if !hasContinue {
+		t.Errorf("Expected ContinueStatement inside loop body, got=%T", forLoop.Body.Statements[0])
+	}
+}

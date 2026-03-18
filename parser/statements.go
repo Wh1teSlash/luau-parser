@@ -27,9 +27,209 @@ func (p *Parser) parseStatement() ast.Stmt {
 		return p.parseComment()
 	case lexer.BREAK:
 		return &ast.BreakStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	case lexer.CONTINUE:
+		return &ast.ContinueStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	case lexer.DO:
+		return p.parseDoBlock()
+	case lexer.TYPE:
+		return p.parseTypeAlias(false)
+	case lexer.EXPORT:
+		return p.parseExportStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseTypeAlias(isExport bool) ast.Stmt {
+	pos := p.curToken.Pos
+	p.nextToken()
+
+	if p.curToken.Type != lexer.IDENT {
+		p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
+		return nil
+	}
+	name := p.curToken.Literal
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+	p.nextToken()
+
+	var typeStr string
+
+	for p.curToken.Type != lexer.EOF && !isStatementToken(p.curToken.Type) {
+		if typeStr != "" && p.curToken.Type != lexer.COMMA && p.curToken.Type != lexer.COLON {
+			typeStr += " "
+		}
+		typeStr += p.curToken.Literal
+
+		if p.peekToken.Type == lexer.EOF || isStatementToken(p.peekToken.Type) {
+			break
+		}
+		p.nextToken()
+	}
+
+	return &ast.TypeAlias{
+		BaseNode: ast.BaseNode{Position: pos},
+		Name:     name,
+		Type:     &ast.TypeAnnotation{Type: typeStr},
+		IsExport: isExport,
+	}
+}
+
+func isStatementToken(t lexer.TokenType) bool {
+	switch t {
+	case lexer.LOCAL, lexer.IF, lexer.WHILE, lexer.REPEAT, lexer.FOR, lexer.FUNCTION, lexer.RETURN, lexer.BREAK, lexer.CONTINUE, lexer.TYPE, lexer.EXPORT, lexer.DO:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Parser) parseExportStatement() ast.Stmt {
+	if p.peekToken.Type == lexer.TYPE {
+		p.nextToken()
+		return p.parseTypeAlias(true)
+	}
+	p.errors = append(p.errors, fmt.Errorf("expected TYPE after EXPORT"))
+	return nil
+}
+
+func (p *Parser) parseFunctionStatement() ast.Stmt {
+	pos := p.curToken.Pos
+	p.nextToken()
+
+	if p.curToken.Type != lexer.IDENT {
+		p.errors = append(p.errors, fmt.Errorf("expected IDENT for function name, got %s", p.curToken.Type))
+		return nil
+	}
+
+	name := p.curToken.Literal
+	isMethod := false
+
+	for p.peekToken.Type == lexer.DOT {
+		p.nextToken()
+		name += "."
+		p.nextToken()
+		name += p.curToken.Literal
+	}
+
+	if p.peekToken.Type == lexer.COLON {
+		p.nextToken()
+		name += ":"
+		p.nextToken()
+		name += p.curToken.Literal
+		isMethod = true
+	}
+
+	params, returnType := p.parseFunctionSignature()
+	body := p.parseBlock()
+
+	if p.curToken.Type != lexer.END {
+		p.errors = append(p.errors, fmt.Errorf("expected END to close function statement, got %s", p.curToken.Type))
+	}
+
+	if isMethod {
+		return &ast.MetamethodDef{
+			BaseNode:   ast.BaseNode{Position: pos},
+			Name:       name,
+			Parameters: params,
+			Body:       body,
+		}
+	}
+
+	return &ast.FunctionDef{
+		BaseNode:   ast.BaseNode{Position: pos},
+		Name:       name,
+		Parameters: params,
+		ReturnType: returnType,
+		Body:       body,
+	}
+}
+
+func (p *Parser) parseLocalStatement() ast.Stmt {
+	pos := p.curToken.Pos
+
+	if p.peekToken.Type == lexer.FUNCTION {
+		p.nextToken()
+		p.nextToken()
+
+		if p.curToken.Type != lexer.IDENT {
+			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
+			return nil
+		}
+		name := p.curToken.Literal
+		params, returnType := p.parseFunctionSignature()
+		body := p.parseBlock()
+
+		if p.curToken.Type != lexer.END {
+			p.errors = append(p.errors, fmt.Errorf("expected END, got %s", p.curToken.Type))
+		}
+
+		return &ast.LocalFunction{
+			BaseNode:   ast.BaseNode{Position: pos},
+			Name:       name,
+			Parameters: params,
+			ReturnType: returnType,
+			Body:       body,
+		}
+	}
+
+	stmt := &ast.LocalAssignment{
+		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
+		Names:    []string{},
+		Values:   []ast.Expr{},
+		Types:    []*ast.TypeAnnotation{},
+	}
+
+	for {
+		p.nextToken()
+		if p.curToken.Type != lexer.IDENT {
+			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
+			return nil
+		}
+		stmt.Names = append(stmt.Names, p.curToken.Literal)
+
+		if p.peekToken.Type != lexer.COMMA {
+			break
+		}
+		p.nextToken()
+	}
+
+	if p.peekToken.Type != lexer.ASSIGN {
+		return stmt
+	}
+
+	p.nextToken()
+	p.nextToken()
+
+	for {
+		val := p.parseExpression(LOWEST)
+		if val != nil {
+			stmt.Values = append(stmt.Values, val)
+		}
+
+		if p.peekToken.Type != lexer.COMMA {
+			break
+		}
+		p.nextToken()
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseDoBlock() ast.Stmt {
+	stmt := &ast.DoBlock{
+		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
+	}
+	p.nextToken()
+	stmt.Body = p.parseBlock()
+
+	if p.curToken.Type != lexer.END {
+		p.errors = append(p.errors, fmt.Errorf("expected END to close do block, got %s", p.curToken.Type))
+	}
+	return stmt
 }
 
 func (p *Parser) parseComment() ast.Stmt {
@@ -130,29 +330,6 @@ func (p *Parser) parseFunctionCall(function ast.Expr) ast.Expr {
 	return call
 }
 
-func (p *Parser) parseFunctionStatement() ast.Stmt {
-	pos := p.curToken.Pos
-	p.nextToken()
-
-	if p.curToken.Type != lexer.IDENT {
-		p.errors = append(p.errors, fmt.Errorf("expected IDENT for function name, got %s", p.curToken.Type))
-		return nil
-	}
-
-	name := p.curToken.Literal
-
-	params, returnType := p.parseFunctionSignature()
-	body := p.parseBlock()
-
-	return &ast.FunctionDef{
-		BaseNode:   ast.BaseNode{Position: pos},
-		Name:       name,
-		Parameters: params,
-		ReturnType: returnType,
-		Body:       body,
-	}
-}
-
 func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, *ast.TypeAnnotation) {
 	params := []*ast.Parameter{}
 	p.expectPeek(lexer.LPAREN)
@@ -247,51 +424,6 @@ func (p *Parser) parseReturnStatement() ast.Stmt {
 		p.nextToken()
 		p.nextToken()
 	}
-	return stmt
-}
-
-func (p *Parser) parseLocalStatement() ast.Stmt {
-	stmt := &ast.LocalAssignment{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Names:    []string{},
-		Values:   []ast.Expr{},
-		Types:    []*ast.TypeAnnotation{},
-	}
-
-	for {
-		p.nextToken()
-		if p.curToken.Type != lexer.IDENT {
-			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
-			return nil
-		}
-		stmt.Names = append(stmt.Names, p.curToken.Literal)
-
-		if p.peekToken.Type != lexer.COMMA {
-			break
-		}
-		p.nextToken()
-	}
-
-	if p.peekToken.Type != lexer.ASSIGN {
-		return stmt
-	}
-
-	p.nextToken()
-	p.nextToken()
-
-	for {
-		val := p.parseExpression(LOWEST)
-		if val != nil {
-			stmt.Values = append(stmt.Values, val)
-		}
-
-		if p.peekToken.Type != lexer.COMMA {
-			break
-		}
-		p.nextToken()
-		p.nextToken()
-	}
-
 	return stmt
 }
 
