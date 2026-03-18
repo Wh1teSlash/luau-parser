@@ -42,4 +42,5 @@ func main() {
 	// Print code based of AST
 	printer := visitors.NewPrinter()
 	fmt.Println(printer.Print(program))
+}
 ```
