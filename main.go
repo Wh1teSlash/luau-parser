@@ -40,16 +40,16 @@ func main() {
 	stmt1 := factory.LocalAssignment(
 		pos,
 		[]string{"x"},
-		[]ast.TypeNode{nil},
 		[]ast.Expr{valX},
+		ast.WithTypes(factory.PrimitiveType(pos, "number")),
 	)
 
 	valY := factory.Literal(pos, "number", int64(6))
 	stmt2 := factory.LocalAssignment(
 		pos,
 		[]string{"y"},
-		[]ast.TypeNode{nil},
 		[]ast.Expr{valY},
+		ast.WithTypes(factory.PrimitiveType(pos, "number")),
 	)
 
 	identPrint := factory.Identifier(pos, "print")

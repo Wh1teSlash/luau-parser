@@ -153,7 +153,10 @@ func (p *Parser) parseFunctionExpr() ast.Expr {
 	p.nextToken()
 	body := p.parseBlock()
 
-	return p.factory.FunctionExpr(pos, generics, params, body, returnType)
+	return p.factory.FunctionExpr(pos, params, body,
+		ast.WithExprGenerics(generics...),
+		ast.WithExprReturnType(returnType),
+	)
 }
 
 func (p *Parser) parseIndexAccess(left ast.Expr) ast.Expr {

@@ -115,6 +115,20 @@ func (f *FunctionExpr) String() string {
 func (f *FunctionExpr) Accept(v Visitor) any { return v.VisitFunctionExpr(f) }
 func (f *FunctionExpr) expressionNode()      {}
 
+type FunctionExprOption func(*FunctionExpr)
+
+func WithExprGenerics(generics ...string) FunctionExprOption {
+	return func(f *FunctionExpr) {
+		f.Generics = generics
+	}
+}
+
+func WithExprReturnType(returnType TypeNode) FunctionExprOption {
+	return func(f *FunctionExpr) {
+		f.ReturnType = returnType
+	}
+}
+
 type Parameter struct {
 	Name string
 	Type TypeNode

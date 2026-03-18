@@ -225,9 +225,11 @@ func (p *Parser) parseLocalStatement(attributes []*ast.Attribute) ast.Stmt {
 			p.errors = append(p.errors, fmt.Errorf("expected END, got %s", p.curToken.Type))
 		}
 
-		localFunc := p.factory.LocalFunction(pos, name, generics, params, body, returnType)
-		localFunc.Attributes = attributes
-		return localFunc
+		return p.factory.LocalFunction(pos, name, params, body,
+			ast.WithLocalGenerics(generics...),
+			ast.WithLocalReturnType(returnType),
+			ast.WithLocalAttributes(attributes...),
+		)
 	}
 
 	if len(attributes) > 0 {
@@ -277,7 +279,9 @@ func (p *Parser) parseLocalStatement(attributes []*ast.Attribute) ast.Stmt {
 		}
 	}
 
-	return p.factory.LocalAssignment(pos, names, types, values)
+	return p.factory.LocalAssignment(pos, names, values,
+		ast.WithTypes(types...),
+	)
 }
 
 func (p *Parser) parseDoBlock() ast.Stmt {

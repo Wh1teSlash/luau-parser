@@ -252,19 +252,20 @@ func (f *NodeFactory) TableLiteral(pos Position, fields []*TableField) *TableLit
 	return node
 }
 
-func (f *NodeFactory) FunctionExpr(pos Position, generics []string, params []*Parameter, body *Block, returnType TypeNode) *FunctionExpr {
-	if generics == nil {
-		generics = []string{}
-	}
+func (f *NodeFactory) FunctionExpr(pos Position, params []*Parameter, body *Block, opts ...FunctionExprOption) *FunctionExpr {
 	if params == nil {
 		params = []*Parameter{}
 	}
 	node := f.functionExprs.Alloc()
 	node.Position = pos
-	node.Generics = generics
+	node.Generics = []string{}
 	node.Parameters = params
 	node.Body = body
-	node.ReturnType = returnType
+	node.ReturnType = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
 	return node
 }
 
@@ -344,12 +345,16 @@ func (f *NodeFactory) Assignment(pos Position, targets []Expr, operator string, 
 	return node
 }
 
-func (f *NodeFactory) LocalAssignment(pos Position, names []string, types []TypeNode, values []Expr) *LocalAssignment {
+func (f *NodeFactory) LocalAssignment(pos Position, names []string, values []Expr, opts ...LocalAssignmentOption) *LocalAssignment {
 	node := f.localAssignments.Alloc()
 	node.Position = pos
 	node.Names = names
-	node.Types = types
+	node.Types = nil
 	node.Values = values
+
+	for _, opt := range opts {
+		opt(node)
+	}
 	return node
 }
 
@@ -442,20 +447,22 @@ func (f *NodeFactory) FunctionDef(pos Position, name string, body *Block, opts .
 	return node
 }
 
-func (f *NodeFactory) LocalFunction(pos Position, name string, generics []string, params []*Parameter, body *Block, returnType TypeNode) *LocalFunction {
-	if generics == nil {
-		generics = []string{}
-	}
+func (f *NodeFactory) LocalFunction(pos Position, name string, params []*Parameter, body *Block, opts ...LocalFunctionOption) *LocalFunction {
 	if params == nil {
 		params = []*Parameter{}
 	}
 	node := f.localFunctions.Alloc()
 	node.Position = pos
 	node.Name = name
-	node.Generics = generics
+	node.Generics = []string{}
 	node.Parameters = params
 	node.Body = body
-	node.ReturnType = returnType
+	node.ReturnType = nil
+	node.Attributes = nil
+
+	for _, opt := range opts {
+		opt(node)
+	}
 	return node
 }
 

@@ -26,6 +26,14 @@ func (l *LocalAssignment) String() string {
 func (l *LocalAssignment) Accept(v Visitor) any { return v.VisitLocalAssignment(l) }
 func (l *LocalAssignment) statementNode()       {}
 
+type LocalAssignmentOption func(*LocalAssignment)
+
+func WithTypes(types ...TypeNode) LocalAssignmentOption {
+	return func(l *LocalAssignment) {
+		l.Types = types
+	}
+}
+
 type IfStatement struct {
 	BaseNode
 	Condition Expr
@@ -175,6 +183,26 @@ func (l *LocalFunction) String() string {
 }
 func (l *LocalFunction) Accept(v Visitor) any { return v.VisitLocalFunction(l) }
 func (l *LocalFunction) statementNode()       {}
+
+type LocalFunctionOption func(*LocalFunction)
+
+func WithLocalGenerics(generics ...string) LocalFunctionOption {
+	return func(l *LocalFunction) {
+		l.Generics = generics
+	}
+}
+
+func WithLocalReturnType(returnType TypeNode) LocalFunctionOption {
+	return func(l *LocalFunction) {
+		l.ReturnType = returnType
+	}
+}
+
+func WithLocalAttributes(attributes ...*Attribute) LocalFunctionOption {
+	return func(l *LocalFunction) {
+		l.Attributes = append(l.Attributes, attributes...)
+	}
+}
 
 type ReturnStatement struct {
 	BaseNode
