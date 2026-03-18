@@ -59,6 +59,7 @@ const (
 	QUESTION  TokenType = "?"
 	PIPE      TokenType = "|"
 	AMPERSAND TokenType = "&"
+	AT        TokenType = "@"
 
 	AND      TokenType = "AND"
 	BREAK    TokenType = "BREAK"

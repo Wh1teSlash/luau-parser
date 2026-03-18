@@ -81,6 +81,11 @@ func (p *TreePrinter) VisitComment(node *ast.Comment) any {
 	return nil
 }
 
+func (p *TreePrinter) VisitAttribute(node *ast.Attribute) any {
+	p.writeLine("Attribute: @%s", node.Name)
+	return nil
+}
+
 func (p *TreePrinter) VisitAssignment(node *ast.Assignment) any {
 	p.writeLine("Assignment (Op: %s)", node.Operator)
 	p.indent++
@@ -234,6 +239,16 @@ func (p *TreePrinter) VisitDoBlock(node *ast.DoBlock) any {
 func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
 	p.writeLine("FunctionDef (Name: %s)", node.Name)
 	p.indent++
+
+	if len(node.Attributes) > 0 {
+		p.writeLine("Attributes:")
+		p.indent++
+		for _, attr := range node.Attributes {
+			attr.Accept(p)
+		}
+		p.indent--
+	}
+
 	p.printParams(node.Parameters)
 	if node.ReturnType != nil {
 		p.writeLine("ReturnType:")
@@ -252,6 +267,15 @@ func (p *TreePrinter) VisitFunctionDef(node *ast.FunctionDef) any {
 func (p *TreePrinter) VisitLocalFunction(node *ast.LocalFunction) any {
 	p.writeLine("LocalFunctionDef (Name: %s)", node.Name)
 	p.indent++
+
+	if len(node.Attributes) > 0 {
+		p.writeLine("Attributes:")
+		p.indent++
+		for _, attr := range node.Attributes {
+			attr.Accept(p)
+		}
+		p.indent--
+	}
 
 	p.printParams(node.Parameters)
 

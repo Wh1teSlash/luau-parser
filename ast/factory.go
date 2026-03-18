@@ -35,10 +35,11 @@ type NodeFactory struct {
 	emptyStatements      *TypedArena[EmptyStatement]
 	expressionStatements *TypedArena[ExpressionStatement]
 
-	blocks   *TypedArena[Block]
-	programs *TypedArena[Program]
-	comments *TypedArena[Comment]
-	modules  *TypedArena[Module]
+	blocks     *TypedArena[Block]
+	programs   *TypedArena[Program]
+	comments   *TypedArena[Comment]
+	modules    *TypedArena[Module]
+	attributes *TypedArena[Attribute]
 
 	primitiveTypes *TypedArena[PrimitiveType]
 	unionTypes     *TypedArena[UnionType]
@@ -89,10 +90,11 @@ func NewFactory() *NodeFactory {
 		emptyStatements:      NewTypedArena[EmptyStatement](),
 		expressionStatements: NewTypedArena[ExpressionStatement](),
 
-		blocks:   NewTypedArena[Block](),
-		programs: NewTypedArena[Program](),
-		comments: NewTypedArena[Comment](),
-		modules:  NewTypedArena[Module](),
+		blocks:     NewTypedArena[Block](),
+		programs:   NewTypedArena[Program](),
+		comments:   NewTypedArena[Comment](),
+		modules:    NewTypedArena[Module](),
+		attributes: NewTypedArena[Attribute](),
 
 		primitiveTypes: NewTypedArena[PrimitiveType](),
 		unionTypes:     NewTypedArena[UnionType](),
@@ -147,6 +149,7 @@ func (f *NodeFactory) Reset() {
 	f.programs.Reset()
 	f.comments.Reset()
 	f.modules.Reset()
+	f.attributes.Reset()
 
 	f.primitiveTypes.Reset()
 	f.unionTypes.Reset()
@@ -159,6 +162,13 @@ func (f *NodeFactory) Reset() {
 	f.elseIfClauses.Reset()
 	f.elseIfExprClauses.Reset()
 	f.tableTypeFields.Reset()
+}
+
+func (f *NodeFactory) Attribute(pos Position, name string) *Attribute {
+	node := f.attributes.Alloc()
+	node.Position = pos
+	node.Name = name
+	return node
 }
 
 func (f *NodeFactory) Identifier(pos Position, name string) *Identifier {

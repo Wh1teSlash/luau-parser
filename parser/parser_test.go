@@ -797,3 +797,99 @@ func TestInterpolatedStrings(t *testing.T) {
 		t.Fatalf("Expected 2 expressions, got %d", len(interp.Expressions))
 	}
 }
+
+func TestFunctionAttributes(t *testing.T) {
+	input := `
+		@native
+		function mathFast()
+		end
+
+		@checked @native
+		local function secureMath()
+		end
+	`
+	l := lexer.New(input)
+	factory := ast.NewFactory()
+	p := New(l, factory)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Body) != 2 {
+		t.Fatalf("Expected 2 statements, got %d", len(program.Body))
+	}
+
+	fn, ok := program.Body[0].(*ast.FunctionDef)
+	if !ok {
+		t.Fatalf("Expected FunctionDef, got=%T", program.Body[0])
+	}
+
+	if len(fn.Attributes) != 1 {
+		t.Fatalf("Expected 1 attribute on FunctionDef, got %d", len(fn.Attributes))
+	}
+
+	if fn.Attributes[0].Name != "native" {
+		t.Errorf("Expected attribute 'native', got '%s'", fn.Attributes[0].Name)
+	}
+
+	localFn, ok := program.Body[1].(*ast.LocalFunction)
+	if !ok {
+		t.Fatalf("Expected LocalFunction, got=%T", program.Body[1])
+	}
+
+	if len(localFn.Attributes) != 2 {
+		t.Fatalf("Expected 2 attributes on LocalFunction, got %d", len(localFn.Attributes))
+	}
+
+	if localFn.Attributes[0].Name != "checked" {
+		t.Errorf("Expected first attribute 'checked', got '%s'", localFn.Attributes[0].Name)
+	}
+	if localFn.Attributes[1].Name != "native" {
+		t.Errorf("Expected second attribute 'native', got '%s'", localFn.Attributes[1].Name)
+	}
+}
+
+func TestAttributeErrors(t *testing.T) {
+	tests := []struct {
+		input           string
+		expectedErrFrag string
+	}{
+		{
+			input:           "@native local x = 5",
+			expectedErrFrag: "attributes are only allowed on function declarations",
+		},
+		{
+			input:           "@native type Point = {x: number, y: number}",
+			expectedErrFrag: "attributes are only allowed on function declarations",
+		},
+		{
+			input:           "@",
+			expectedErrFrag: "expected identifier after '@'",
+		},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		factory.Reset()
+		l := lexer.New(tt.input)
+		p := New(l, factory)
+		p.ParseProgram()
+
+		errors := p.Errors()
+		if len(errors) == 0 {
+			t.Errorf("Expected parsing error for input %q, but got none", tt.input)
+			continue
+		}
+
+		found := false
+		for _, err := range errors {
+			if strings.Contains(err.Error(), tt.expectedErrFrag) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("Expected error containing %q, got: %v", tt.expectedErrFrag, errors)
+		}
+	}
+}

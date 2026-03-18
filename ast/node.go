@@ -71,6 +71,7 @@ type Visitor interface {
 	VisitProgram(node *Program) any
 	VisitComment(node *Comment) any
 	VisitModule(node *Module) any
+	VisitAttribute(node *Attribute) any
 
 	// Types
 	VisitPrimitiveType(node *PrimitiveType) any

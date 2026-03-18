@@ -176,6 +176,8 @@ func (l *Lexer) NextToken() Token {
 		tok = Token{Type: PIPE, Literal: string(l.ch), Pos: pos}
 	case '&':
 		tok = Token{Type: AMPERSAND, Literal: string(l.ch), Pos: pos}
+	case '@':
+		tok = Token{Type: AT, Literal: string(l.ch), Pos: pos}
 
 	case ',':
 		tok = Token{Type: COMMA, Literal: string(l.ch), Pos: pos}

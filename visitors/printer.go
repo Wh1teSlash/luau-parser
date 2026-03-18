@@ -53,6 +53,11 @@ func (p *Printer) printParams(params []*ast.Parameter) {
 	}
 }
 
+func (p *Printer) VisitAttribute(node *ast.Attribute) any {
+	p.write("@" + node.Name)
+	return nil
+}
+
 func (p *Printer) VisitProgram(node *ast.Program) any {
 	for i, stmt := range node.Body {
 		stmt.Accept(p)
@@ -237,6 +242,13 @@ func (p *Printer) VisitDoBlock(node *ast.DoBlock) any {
 
 func (p *Printer) VisitFunctionDef(node *ast.FunctionDef) any {
 	p.writeIndent()
+
+	for _, attr := range node.Attributes {
+		attr.Accept(p)
+		p.write("\n")
+		p.writeIndent()
+	}
+
 	p.write(fmt.Sprintf("function %s(", node.Name))
 	p.printParams(node.Parameters)
 	p.write(")")
@@ -258,6 +270,13 @@ func (p *Printer) VisitFunctionDef(node *ast.FunctionDef) any {
 
 func (p *Printer) VisitLocalFunction(node *ast.LocalFunction) any {
 	p.writeIndent()
+
+	for _, attr := range node.Attributes {
+		attr.Accept(p)
+		p.write("\n")
+		p.writeIndent()
+	}
+
 	p.write(fmt.Sprintf("local function %s(", node.Name))
 	p.printParams(node.Parameters)
 	p.write(")")

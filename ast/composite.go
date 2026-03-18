@@ -36,3 +36,11 @@ type Module struct {
 
 func (m *Module) String() string       { return fmt.Sprintf("Module{name: %s}", m.Name) }
 func (m *Module) Accept(v Visitor) any { return v.VisitModule(m) }
+
+type Attribute struct {
+	BaseNode
+	Name string
+}
+
+func (a *Attribute) String() string       { return "@" + a.Name }
+func (a *Attribute) Accept(v Visitor) any { return v.VisitAttribute(a) }

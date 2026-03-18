@@ -121,6 +121,7 @@ func (d *DoBlock) statementNode()       {}
 type FunctionDef struct {
 	BaseNode
 	Name       string
+	Attributes []*Attribute
 	Generics   []string
 	Parameters []*Parameter
 	Body       *Block
@@ -128,7 +129,7 @@ type FunctionDef struct {
 }
 
 func (f *FunctionDef) String() string {
-	return fmt.Sprintf("FunctionDef{name: %s, params: %d}", f.Name, len(f.Parameters))
+	return fmt.Sprintf("FunctionDef{name: %s, params: %d, attrs: %d}", f.Name, len(f.Parameters), len(f.Attributes))
 }
 func (f *FunctionDef) Accept(v Visitor) any { return v.VisitFunctionDef(f) }
 func (f *FunctionDef) statementNode()       {}
@@ -153,9 +154,16 @@ func WithDefReturnType(returnType TypeNode) FunctionDefOption {
 	}
 }
 
+func WithDefAttributes(attributes ...*Attribute) FunctionDefOption {
+	return func(f *FunctionDef) {
+		f.Attributes = append(f.Attributes, attributes...)
+	}
+}
+
 type LocalFunction struct {
 	BaseNode
 	Name       string
+	Attributes []*Attribute
 	Generics   []string
 	Parameters []*Parameter
 	Body       *Block

@@ -8,11 +8,23 @@ import (
 )
 
 func (p *Parser) parseStatement() ast.Stmt {
+	var attributes []*ast.Attribute
+
+	if p.curToken.Type == lexer.AT {
+		attributes = p.parseAttributes()
+	}
+
+	if len(attributes) > 0 {
+		if p.curToken.Type != lexer.LOCAL && p.curToken.Type != lexer.FUNCTION {
+			p.errors = append(p.errors, fmt.Errorf("attributes are only allowed on function declarations at line %d", p.curToken.Pos.Line))
+		}
+	}
+
 	switch p.curToken.Type {
 	case lexer.SEMICOLON:
 		return p.factory.EmptyStatement(p.curToken.Pos)
 	case lexer.LOCAL:
-		return p.parseLocalStatement()
+		return p.parseLocalStatement(attributes)
 	case lexer.IF:
 		return p.parseIfStatement()
 	case lexer.WHILE:
@@ -22,7 +34,7 @@ func (p *Parser) parseStatement() ast.Stmt {
 	case lexer.FOR:
 		return p.parseForStatement()
 	case lexer.FUNCTION:
-		return p.parseFunctionStatement()
+		return p.parseFunctionStatement(attributes)
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.COMMENT:
@@ -40,6 +52,27 @@ func (p *Parser) parseStatement() ast.Stmt {
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseAttributes() []*ast.Attribute {
+	var attributes []*ast.Attribute
+
+	for p.curToken.Type == lexer.AT {
+		pos := p.curToken.Pos
+		p.nextToken()
+
+		if p.curToken.Type != lexer.IDENT {
+			p.errors = append(p.errors, fmt.Errorf("expected identifier after '@', got %s", p.curToken.Type))
+			return attributes
+		}
+
+		attrName := p.curToken.Literal
+		attributes = append(attributes, p.factory.Attribute(pos, attrName))
+
+		p.nextToken()
+	}
+
+	return attributes
 }
 
 func (p *Parser) parseGenericParams() []string {
@@ -117,7 +150,7 @@ func (p *Parser) parseExportStatement() ast.Stmt {
 	return nil
 }
 
-func (p *Parser) parseFunctionStatement() ast.Stmt {
+func (p *Parser) parseFunctionStatement(attributes []*ast.Attribute) ast.Stmt {
 	pos := p.curToken.Pos
 	p.nextToken()
 
@@ -154,6 +187,9 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 	}
 
 	if isMethod {
+		if len(attributes) > 0 {
+			p.errors = append(p.errors, fmt.Errorf("attributes on metamethods are not supported"))
+		}
 		return p.factory.MetamethodDef(pos, name, params, body)
 	}
 
@@ -164,10 +200,11 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 		ast.WithDefGenerics(generics...),
 		ast.WithDefParams(params...),
 		ast.WithDefReturnType(returnType),
+		ast.WithDefAttributes(attributes...),
 	)
 }
 
-func (p *Parser) parseLocalStatement() ast.Stmt {
+func (p *Parser) parseLocalStatement(attributes []*ast.Attribute) ast.Stmt {
 	pos := p.curToken.Pos
 
 	if p.peekToken.Type == lexer.FUNCTION {
@@ -188,7 +225,13 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 			p.errors = append(p.errors, fmt.Errorf("expected END, got %s", p.curToken.Type))
 		}
 
-		return p.factory.LocalFunction(pos, name, generics, params, body, returnType)
+		localFunc := p.factory.LocalFunction(pos, name, generics, params, body, returnType)
+		localFunc.Attributes = attributes
+		return localFunc
+	}
+
+	if len(attributes) > 0 {
+		p.errors = append(p.errors, fmt.Errorf("attributes are only allowed on function declarations, not variable assignments"))
 	}
 
 	names := []string{}
