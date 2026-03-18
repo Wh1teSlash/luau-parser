@@ -10,8 +10,7 @@ import (
 func (p *Parser) parseStatement() ast.Stmt {
 	switch p.curToken.Type {
 	case lexer.SEMICOLON:
-		stmt := &ast.EmptyStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
-		return stmt
+		return p.factory.EmptyStatement(p.curToken.Pos)
 	case lexer.LOCAL:
 		return p.parseLocalStatement()
 	case lexer.IF:
@@ -29,9 +28,9 @@ func (p *Parser) parseStatement() ast.Stmt {
 	case lexer.COMMENT:
 		return p.parseComment()
 	case lexer.BREAK:
-		return &ast.BreakStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+		return p.factory.BreakStatement(p.curToken.Pos)
 	case lexer.CONTINUE:
-		return &ast.ContinueStatement{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+		return p.factory.ContinueStatement(p.curToken.Pos)
 	case lexer.DO:
 		return p.parseDoBlock()
 	case lexer.TYPE:
@@ -96,13 +95,7 @@ func (p *Parser) parseTypeAlias(isExport bool) ast.Stmt {
 
 	typeNode := p.parseType(TYPE_LOWEST)
 
-	return &ast.TypeAlias{
-		BaseNode: ast.BaseNode{Position: pos},
-		Name:     name,
-		Generics: generics,
-		Type:     typeNode,
-		IsExport: isExport,
-	}
+	return p.factory.TypeAlias(pos, name, generics, typeNode, isExport)
 }
 
 func (p *Parser) parseExportStatement() ast.Stmt {
@@ -142,7 +135,6 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 	}
 
 	generics := p.parseGenericParams()
-
 	params, returnType := p.parseFunctionSignature()
 	p.nextToken()
 	body := p.parseBlock()
@@ -152,22 +144,10 @@ func (p *Parser) parseFunctionStatement() ast.Stmt {
 	}
 
 	if isMethod {
-		return &ast.MetamethodDef{
-			BaseNode:   ast.BaseNode{Position: pos},
-			Name:       name,
-			Parameters: params,
-			Body:       body,
-		}
+		return p.factory.MetamethodDef(pos, name, params, body)
 	}
 
-	return &ast.FunctionDef{
-		BaseNode:   ast.BaseNode{Position: pos},
-		Name:       name,
-		Generics:   generics,
-		Parameters: params,
-		ReturnType: returnType,
-		Body:       body,
-	}
+	return p.factory.FunctionDef(pos, name, generics, params, body, returnType)
 }
 
 func (p *Parser) parseLocalStatement() ast.Stmt {
@@ -191,22 +171,12 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 			p.errors = append(p.errors, fmt.Errorf("expected END, got %s", p.curToken.Type))
 		}
 
-		return &ast.LocalFunction{
-			BaseNode:   ast.BaseNode{Position: pos},
-			Name:       name,
-			Generics:   generics,
-			Parameters: params,
-			ReturnType: returnType,
-			Body:       body,
-		}
+		return p.factory.LocalFunction(pos, name, generics, params, body, returnType)
 	}
 
-	stmt := &ast.LocalAssignment{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Names:    []string{},
-		Values:   []ast.Expr{},
-		Types:    []ast.TypeNode{},
-	}
+	names := []string{}
+	values := []ast.Expr{}
+	types := []ast.TypeNode{}
 
 	for {
 		p.nextToken()
@@ -214,14 +184,14 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
 			return nil
 		}
-		stmt.Names = append(stmt.Names, p.curToken.Literal)
+		names = append(names, p.curToken.Literal)
 
 		if p.peekToken.Type == lexer.COLON {
 			p.nextToken()
 			p.nextToken()
-			stmt.Types = append(stmt.Types, p.parseType(TYPE_LOWEST))
+			types = append(types, p.parseType(TYPE_LOWEST))
 		} else {
-			stmt.Types = append(stmt.Types, nil)
+			types = append(types, nil)
 		}
 
 		if p.peekToken.Type != lexer.COMMA {
@@ -237,7 +207,7 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		for {
 			val := p.parseExpression(LOWEST)
 			if val != nil {
-				stmt.Values = append(stmt.Values, val)
+				values = append(values, val)
 			}
 			if p.peekToken.Type != lexer.COMMA {
 				break
@@ -247,29 +217,22 @@ func (p *Parser) parseLocalStatement() ast.Stmt {
 		}
 	}
 
-	return stmt
+	return p.factory.LocalAssignment(pos, names, types, values)
 }
 
 func (p *Parser) parseDoBlock() ast.Stmt {
-	stmt := &ast.DoBlock{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-	}
+	pos := p.curToken.Pos
 	p.nextToken()
-	stmt.Body = p.parseBlock()
+	body := p.parseBlock()
 
 	if p.curToken.Type != lexer.END {
 		p.errors = append(p.errors, fmt.Errorf("expected END to close do block, got %s", p.curToken.Type))
 	}
-	return stmt
+	return p.factory.DoBlock(pos, body)
 }
 
 func (p *Parser) parseComment() ast.Stmt {
-	stmt := &ast.Comment{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Text:     p.curToken.Literal,
-	}
-
-	return stmt
+	return p.factory.Comment(p.curToken.Pos, p.curToken.Literal)
 }
 
 func (p *Parser) parseForStatement() ast.Stmt {
@@ -292,7 +255,8 @@ func (p *Parser) parseForStatement() ast.Stmt {
 
 		p.expectPeek(lexer.DO)
 		p.nextToken()
-		return &ast.ForInLoop{BaseNode: ast.BaseNode{Position: pos}, Variables: names, Iterables: iterables, Body: p.parseBlock()}
+
+		return p.factory.ForInLoop(pos, names, iterables, p.parseBlock())
 	} else {
 		p.expectPeek(lexer.ASSIGN)
 		p.nextToken()
@@ -310,25 +274,26 @@ func (p *Parser) parseForStatement() ast.Stmt {
 
 		p.expectPeek(lexer.DO)
 		p.nextToken()
-		return &ast.ForLoop{BaseNode: ast.BaseNode{Position: pos}, Variable: names[0], Start: start, End: end, Step: step, Body: p.parseBlock()}
+
+		return p.factory.ForLoop(pos, names[0], start, end, step, p.parseBlock())
 	}
 }
 
 func (p *Parser) parseWhileStatement() ast.Stmt {
-	stmt := &ast.WhileLoop{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	pos := p.curToken.Pos
 	p.nextToken()
-	stmt.Condition = p.parseExpression(LOWEST)
+	condition := p.parseExpression(LOWEST)
 
 	p.expectPeek(lexer.DO)
 	p.nextToken()
-	stmt.Body = p.parseBlock()
-	return stmt
+	body := p.parseBlock()
+	return p.factory.WhileLoop(pos, condition, body)
 }
 
 func (p *Parser) parseRepeatLoop() ast.Stmt {
-	stmt := &ast.RepeatLoop{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	pos := p.curToken.Pos
 	p.nextToken()
-	stmt.Body = p.parseBlock()
+	body := p.parseBlock()
 
 	if p.curToken.Type != lexer.UNTIL {
 		p.errors = append(p.errors, fmt.Errorf("expected current token to be UNTIL, got %s", p.curToken.Type))
@@ -336,29 +301,8 @@ func (p *Parser) parseRepeatLoop() ast.Stmt {
 	}
 	p.nextToken()
 
-	stmt.Condition = p.parseExpression(LOWEST)
-	return stmt
-}
-
-func (p *Parser) parseFunctionCall(function ast.Expr) ast.Expr {
-	call := &ast.FunctionCall{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Function: function,
-		Args:     []ast.Expr{},
-	}
-
-	if p.peekToken.Type != lexer.RPAREN {
-		p.nextToken()
-		call.Args = append(call.Args, p.parseExpression(LOWEST))
-		for p.peekToken.Type == lexer.COMMA {
-			p.nextToken()
-			p.nextToken()
-			call.Args = append(call.Args, p.parseExpression(LOWEST))
-		}
-	}
-
-	p.expectPeek(lexer.RPAREN)
-	return call
+	condition := p.parseExpression(LOWEST)
+	return p.factory.RepeatLoop(pos, body, condition)
 }
 
 func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, ast.TypeNode) {
@@ -368,13 +312,16 @@ func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, ast.TypeNode) {
 	if p.peekToken.Type != lexer.RPAREN {
 		p.nextToken()
 		for {
-			param := &ast.Parameter{Name: p.curToken.Literal}
+			name := p.curToken.Literal
+			var typeNode ast.TypeNode
+
 			if p.peekToken.Type == lexer.COLON {
 				p.nextToken()
 				p.nextToken()
-				param.Type = p.parseType(TYPE_LOWEST)
+				typeNode = p.parseType(TYPE_LOWEST)
 			}
-			params = append(params, param)
+
+			params = append(params, p.factory.Parameter(name, typeNode))
 
 			if p.peekToken.Type != lexer.COMMA {
 				break
@@ -399,65 +346,62 @@ func (p *Parser) parseFunctionSignature() ([]*ast.Parameter, ast.TypeNode) {
 }
 
 func (p *Parser) parseIfStatement() ast.Stmt {
-	stmt := &ast.IfStatement{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		ElseIfs:  []*ast.ElseIfClause{},
-	}
+	pos := p.curToken.Pos
+	elseIfs := []*ast.ElseIfClause{}
 
 	p.nextToken()
-	stmt.Condition = p.parseExpression(LOWEST)
+	condition := p.parseExpression(LOWEST)
 
 	if !p.expectPeek(lexer.THEN) {
 		return nil
 	}
 	p.nextToken()
-	stmt.Then = p.parseBlock()
+	thenBlock := p.parseBlock()
 
 	for p.curToken.Type == lexer.ELSEIF {
-		clause := &ast.ElseIfClause{}
 		p.nextToken()
-		clause.Condition = p.parseExpression(LOWEST)
+		clauseCond := p.parseExpression(LOWEST)
 
 		if !p.expectPeek(lexer.THEN) {
 			return nil
 		}
 		p.nextToken()
-		clause.Body = p.parseBlock()
-		stmt.ElseIfs = append(stmt.ElseIfs, clause)
+		clauseBody := p.parseBlock()
+
+		elseIfs = append(elseIfs, p.factory.ElseIfClause(clauseCond, clauseBody))
 	}
 
+	var elseBlock *ast.Block
 	if p.curToken.Type == lexer.ELSE {
 		p.nextToken()
-		stmt.Else = p.parseBlock()
+		elseBlock = p.parseBlock()
 	}
 
 	if p.curToken.Type != lexer.END {
 		p.errors = append(p.errors, fmt.Errorf("expected END to close if statement, got %s", p.curToken.Type))
 	}
 
-	return stmt
+	return p.factory.IfStatement(pos, condition, thenBlock, elseIfs, elseBlock)
 }
 
 func (p *Parser) parseReturnStatement() ast.Stmt {
-	stmt := &ast.ReturnStatement{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Values:   []ast.Expr{},
-	}
+	pos := p.curToken.Pos
+	values := []ast.Expr{}
 
 	if p.peekToken.Type == lexer.EOF || p.peekToken.Type == lexer.END || p.peekToken.Type == lexer.ELSE || p.peekToken.Type == lexer.ELSEIF || p.peekToken.Type == lexer.UNTIL {
-		return stmt
+		return p.factory.ReturnStatement(pos, values)
 	}
 
 	p.nextToken()
 	for {
-		stmt.Values = append(stmt.Values, p.parseExpression(LOWEST))
+		values = append(values, p.parseExpression(LOWEST))
 		if p.peekToken.Type != lexer.COMMA {
 			break
 		}
 		p.nextToken()
 		p.nextToken()
 	}
-	return stmt
+	return p.factory.ReturnStatement(pos, values)
 }
 
 func (p *Parser) parseExpressionStatement() ast.Stmt {
@@ -482,21 +426,13 @@ func (p *Parser) parseExpressionStatement() ast.Stmt {
 			values = append(values, p.parseExpression(LOWEST))
 		}
 
-		return &ast.Assignment{
-			BaseNode: ast.BaseNode{Position: targets[0].Pos()},
-			Targets:  targets,
-			Operator: op,
-			Values:   values,
-		}
+		return p.factory.Assignment(targets[0].Pos(), targets, op, values)
 	}
 
 	if len(targets) == 1 {
 		switch targets[0].(type) {
 		case *ast.FunctionCall, *ast.MethodCall:
-			return &ast.ExpressionStatement{
-				BaseNode: ast.BaseNode{Position: targets[0].Pos()},
-				Expr:     targets[0],
-			}
+			return p.factory.ExpressionStatement(targets[0].Pos(), targets[0])
 		}
 	}
 

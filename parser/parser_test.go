@@ -26,7 +26,8 @@ func TestLocalAssignment(t *testing.T) {
 	input := `local x = 5`
 
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 
 	checkParserErrors(t, p)
@@ -69,9 +70,11 @@ func TestPrefixExpressions(t *testing.T) {
 		{"#array", "#", "array"},
 	}
 
+	factory := ast.NewFactory()
 	for _, tt := range prefixTests {
+		factory.Reset()
 		l := lexer.New(tt.input)
-		p := New(l)
+		p := New(l, factory)
 
 		expr := p.parseExpression(LOWEST)
 		checkParserErrors(t, p)
@@ -109,9 +112,11 @@ func TestInfixExpressions(t *testing.T) {
 		{"true == true", true, "==", true},
 	}
 
+	factory := ast.NewFactory()
 	for _, tt := range infixTests {
+		factory.Reset()
 		l := lexer.New(tt.input)
-		p := New(l)
+		p := New(l, factory)
 
 		expr := p.parseExpression(LOWEST)
 		checkParserErrors(t, p)
@@ -165,9 +170,11 @@ func TestAssignments(t *testing.T) {
 		{"a, b = 1, 2", []string{"a", "b"}, "=", []int64{1, 2}},
 	}
 
+	factory := ast.NewFactory()
 	for _, tt := range tests {
+		factory.Reset()
 		l := lexer.New(tt.input)
-		p := New(l)
+		p := New(l, factory)
 		program := p.ParseProgram()
 		checkParserErrors(t, p)
 
@@ -206,7 +213,8 @@ func TestFunctionAndMethodCalls(t *testing.T) {
 		player:Damage(50)
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -250,7 +258,8 @@ func TestControlFlowStatements(t *testing.T) {
 		for k, v in pairs do end
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -297,7 +306,8 @@ func TestFunctionDefinitions(t *testing.T) {
 		end
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -330,7 +340,8 @@ func TestTablesAndAccess(t *testing.T) {
 		local b = myTable[5]
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -479,9 +490,11 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		},
 	}
 
+	factory := ast.NewFactory()
 	for _, tt := range tests {
+		factory.Reset()
 		l := lexer.New(tt.input)
-		p := New(l)
+		p := New(l, factory)
 
 		expr := p.parseExpression(LOWEST)
 		checkParserErrors(t, p)
@@ -499,7 +512,8 @@ func TestLuauSpecificExpressions(t *testing.T) {
 		local b = if true then 1 else 2
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -522,7 +536,8 @@ func TestAnonymousFunctionsAndVarargs(t *testing.T) {
 		end
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -556,9 +571,11 @@ func TestParserErrors(t *testing.T) {
 		{"x = (5 + 5", "expected closing bracket"},
 	}
 
+	factory := ast.NewFactory()
 	for _, tt := range tests {
+		factory.Reset()
 		l := lexer.New(tt.input)
-		p := New(l)
+		p := New(l, factory)
 		p.ParseProgram()
 
 		errors := p.Errors()
@@ -601,7 +618,8 @@ func TestStandardLuaFeatures(t *testing.T) {
 		print {1, 2, 3}
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -667,7 +685,8 @@ func TestLuauTypeAliasesAndContinue(t *testing.T) {
 			end
 		`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -727,7 +746,8 @@ func TestLuauGenerics(t *testing.T) {
 		end
 	`
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
@@ -755,7 +775,8 @@ func TestInterpolatedStrings(t *testing.T) {
 	input := "local greeting = `Hello {\"World\"}, I am {10 + 10} years old!`"
 
 	l := lexer.New(input)
-	p := New(l)
+	factory := ast.NewFactory()
+	p := New(l, factory)
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 

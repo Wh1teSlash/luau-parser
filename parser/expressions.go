@@ -30,26 +30,24 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 }
 
 func (p *Parser) parseInterpolatedString() ast.Expr {
-	node := &ast.InterpolatedString{
-		BaseNode:    ast.BaseNode{Position: p.curToken.Pos},
-		Segments:    []string{p.curToken.Literal},
-		Expressions: []ast.Expr{},
-	}
+	pos := p.curToken.Pos
+	segments := []string{p.curToken.Literal}
+	expressions := []ast.Expr{}
 
 	for {
 		p.nextToken()
 
 		expr := p.parseExpression(LOWEST)
 		if expr != nil {
-			node.Expressions = append(node.Expressions, expr)
+			expressions = append(expressions, expr)
 		}
 
 		if p.peekToken.Type == lexer.INTERP_MID {
 			p.nextToken()
-			node.Segments = append(node.Segments, p.curToken.Literal)
+			segments = append(segments, p.curToken.Literal)
 		} else if p.peekToken.Type == lexer.INTERP_END {
 			p.nextToken()
-			node.Segments = append(node.Segments, p.curToken.Literal)
+			segments = append(segments, p.curToken.Literal)
 			break
 		} else {
 			p.errors = append(p.errors, fmt.Errorf("expected INTERP_MID or INTERP_END, got %s", p.peekToken.Type))
@@ -57,77 +55,48 @@ func (p *Parser) parseInterpolatedString() ast.Expr {
 		}
 	}
 
-	return node
+	return p.factory.InterpolatedString(pos, segments, expressions)
 }
 
 func (p *Parser) parseIdentifier() ast.Expr {
-	return &ast.Identifier{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Name:     p.curToken.Literal,
-	}
+	return p.factory.Identifier(p.curToken.Pos, p.curToken.Literal)
 }
 
 func (p *Parser) parseStringLiteral() ast.Expr {
-	return &ast.Literal{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Type:     "string",
-		Value:    p.curToken.Literal,
-	}
+	return p.factory.Literal(p.curToken.Pos, "string", p.curToken.Literal)
 }
 
 func (p *Parser) parseBooleanLiteral() ast.Expr {
-	return &ast.Literal{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Type:     "boolean",
-		Value:    p.curToken.Type == lexer.TRUE,
-	}
+	return p.factory.Literal(p.curToken.Pos, "boolean", p.curToken.Type == lexer.TRUE)
 }
 
 func (p *Parser) parseNilLiteral() ast.Expr {
-	return &ast.Literal{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Type:     "nil",
-		Value:    nil,
-	}
+	return p.factory.Literal(p.curToken.Pos, "nil", nil)
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expr {
-	lit := &ast.Literal{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Type:     "number",
-	}
-
+	pos := p.curToken.Pos
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
 		p.errors = append(p.errors, fmt.Errorf("unable to parse %q as int", p.curToken.Literal))
 		return nil
 	}
-
-	lit.Value = value
-	return lit
+	return p.factory.Literal(pos, "number", value)
 }
 
 func (p *Parser) parseFloatLiteral() ast.Expr {
-	lit := &ast.Literal{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Type:     "number",
-	}
-
+	pos := p.curToken.Pos
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
 		p.errors = append(p.errors, fmt.Errorf("unable to parse %q as float", p.curToken.Literal))
 		return nil
 	}
-
-	lit.Value = value
-	return lit
+	return p.factory.Literal(pos, "number", value)
 }
 
 func (p *Parser) parseTableLiteral() ast.Expr {
-	table := &ast.TableLiteral{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Fields:   []*ast.TableField{},
-	}
+	pos := p.curToken.Pos
+	fields := []*ast.TableField{}
 
 	for p.peekToken.Type != lexer.RBRACE && p.peekToken.Type != lexer.EOF {
 		p.nextToken()
@@ -136,32 +105,28 @@ func (p *Parser) parseTableLiteral() ast.Expr {
 			break
 		}
 
-		field := &ast.TableField{}
+		var key, value ast.Expr
 
 		if p.curToken.Type == lexer.LBRACKET {
 			p.nextToken()
-			field.Key = p.parseExpression(LOWEST)
+			key = p.parseExpression(LOWEST)
 			if !p.expectPeek(lexer.RBRACKET) || !p.expectPeek(lexer.ASSIGN) {
 				return nil
 			}
 			p.nextToken()
-			field.Value = p.parseExpression(LOWEST)
+			value = p.parseExpression(LOWEST)
 
 		} else if p.curToken.Type == lexer.IDENT && p.peekToken.Type == lexer.ASSIGN {
-			field.Key = &ast.Literal{
-				BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-				Type:     "string",
-				Value:    p.curToken.Literal,
-			}
+			key = p.factory.Literal(p.curToken.Pos, "string", p.curToken.Literal)
 			p.nextToken()
 			p.nextToken()
-			field.Value = p.parseExpression(LOWEST)
+			value = p.parseExpression(LOWEST)
 
 		} else {
-			field.Value = p.parseExpression(LOWEST)
+			value = p.parseExpression(LOWEST)
 		}
 
-		table.Fields = append(table.Fields, field)
+		fields = append(fields, p.factory.TableField(key, value))
 
 		if p.peekToken.Type == lexer.COMMA || p.peekToken.Type == lexer.SEMICOLON {
 			p.nextToken()
@@ -177,81 +142,60 @@ func (p *Parser) parseTableLiteral() ast.Expr {
 		}
 	}
 
-	return table
+	return p.factory.TableLiteral(pos, fields)
 }
 
 func (p *Parser) parseFunctionExpr() ast.Expr {
-	expr := &ast.FunctionExpr{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-	}
-
-	expr.Generics = p.parseGenericParams()
-
+	pos := p.curToken.Pos
+	generics := p.parseGenericParams()
 	params, returnType := p.parseFunctionSignature()
 
-	expr.Parameters = params
-	expr.ReturnType = returnType
 	p.nextToken()
-	expr.Body = p.parseBlock()
+	body := p.parseBlock()
 
-	return expr
+	return p.factory.FunctionExpr(pos, generics, params, body, returnType)
 }
 
 func (p *Parser) parseIndexAccess(left ast.Expr) ast.Expr {
-	expr := &ast.IndexAccess{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Table:    left,
-	}
-
+	pos := p.curToken.Pos
 	p.nextToken()
-	expr.Index = p.parseExpression(LOWEST)
+	index := p.parseExpression(LOWEST)
 
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
 	}
-
-	return expr
+	return p.factory.IndexAccess(pos, left, index)
 }
 
 func (p *Parser) parseFieldAccess(left ast.Expr) ast.Expr {
-	expr := &ast.FieldAccess{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Object:   left,
-	}
-
+	pos := p.curToken.Pos
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
-	expr.Field = p.curToken.Literal
-
-	return expr
+	return p.factory.FieldAccess(pos, left, p.curToken.Literal)
 }
 
 func (p *Parser) parseMethodCall(left ast.Expr) ast.Expr {
-	expr := &ast.MethodCall{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Object:   left,
-		Args:     []ast.Expr{},
-	}
-
+	pos := p.curToken.Pos
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
-	expr.Method = p.curToken.Literal
+	method := p.curToken.Literal
+	args := []ast.Expr{}
 
 	switch p.peekToken.Type {
 	case lexer.LPAREN:
 		p.nextToken()
-		expr.Args = p.parseCallArguments()
+		args = p.parseCallArguments()
 	case lexer.LBRACE, lexer.STRING:
 		p.nextToken()
-		expr.Args = append(expr.Args, p.parseExpression(LOWEST))
+		args = append(args, p.parseExpression(LOWEST))
 	default:
-		p.errors = append(p.errors, fmt.Errorf("expected function arguments for method %s", expr.Method))
+		p.errors = append(p.errors, fmt.Errorf("expected function arguments for method %s", method))
 		return nil
 	}
 
-	return expr
+	return p.factory.MethodCall(pos, left, method, args)
 }
 
 func (p *Parser) parseCallArguments() []ast.Expr {
@@ -279,20 +223,17 @@ func (p *Parser) parseCallArguments() []ast.Expr {
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expr {
-	expression := &ast.UnaryOp{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Op:       p.curToken.Literal,
-	}
-
+	pos := p.curToken.Pos
+	op := p.curToken.Literal
 	p.nextToken()
-	expression.Operand = p.parseExpression(PREFIX)
+	operand := p.parseExpression(PREFIX)
 
-	return expression
+	return p.factory.UnaryOp(pos, op, operand)
 }
 
 func (p *Parser) parseGroupedExpression() ast.Expr {
+	pos := p.curToken.Pos
 	p.nextToken()
-
 	exp := p.parseExpression(LOWEST)
 
 	if p.peekToken.Type != lexer.RPAREN {
@@ -301,19 +242,12 @@ func (p *Parser) parseGroupedExpression() ast.Expr {
 	}
 	p.nextToken()
 
-	return &ast.ParenExpr{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Expr:     exp,
-	}
+	return p.factory.ParenExpr(pos, exp)
 }
 
 func (p *Parser) parseInfixExpression(left ast.Expr) ast.Expr {
-	expression := &ast.BinaryOp{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Left:     left,
-		Op:       p.curToken.Literal,
-	}
-
+	pos := p.curToken.Pos
+	op := p.curToken.Literal
 	precedence := p.curPrecedence()
 
 	if p.curToken.Type == lexer.CARET || p.curToken.Type == lexer.CONCAT {
@@ -321,81 +255,86 @@ func (p *Parser) parseInfixExpression(left ast.Expr) ast.Expr {
 	}
 
 	p.nextToken()
-	expression.Right = p.parseExpression(precedence)
+	right := p.parseExpression(precedence)
 
-	return expression
+	return p.factory.BinaryOp(pos, left, op, right)
 }
 
 func (p *Parser) parseTypeCast(left ast.Expr) ast.Expr {
-	expr := &ast.TypeCast{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Value:    left,
-	}
-
+	pos := p.curToken.Pos
 	p.nextToken()
-	expr.Type = p.parseType(TYPE_LOWEST)
-
-	return expr
+	typeNode := p.parseType(TYPE_LOWEST)
+	return p.factory.TypeCast(pos, left, typeNode)
 }
 
 func (p *Parser) parseIfExpr() ast.Expr {
-	expr := &ast.IfExpr{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		ElseIfs:  []*ast.ElseIfExprClause{},
-	}
-	p.nextToken()
+	pos := p.curToken.Pos
+	elseIfs := []*ast.ElseIfExprClause{}
 
-	expr.Condition = p.parseExpression(LOWEST)
+	p.nextToken()
+	condition := p.parseExpression(LOWEST)
 
 	if !p.expectPeek(lexer.THEN) {
 		return nil
 	}
 	p.nextToken()
-
-	expr.Then = p.parseExpression(LOWEST)
+	then := p.parseExpression(LOWEST)
 
 	for p.peekToken.Type == lexer.ELSEIF {
 		p.nextToken()
-		clause := &ast.ElseIfExprClause{}
 		p.nextToken()
-
-		clause.Condition = p.parseExpression(LOWEST)
+		clauseCond := p.parseExpression(LOWEST)
 
 		if !p.expectPeek(lexer.THEN) {
 			return nil
 		}
 		p.nextToken()
+		clauseThen := p.parseExpression(LOWEST)
 
-		clause.Then = p.parseExpression(LOWEST)
-		expr.ElseIfs = append(expr.ElseIfs, clause)
+		elseIfs = append(elseIfs, p.factory.ElseIfExprClause(clauseCond, clauseThen))
 	}
 
 	if !p.expectPeek(lexer.ELSE) {
 		return nil
 	}
 	p.nextToken()
+	elseExpr := p.parseExpression(LOWEST)
 
-	expr.Else = p.parseExpression(LOWEST)
-	return expr
+	return p.factory.IfExpr(pos, condition, then, elseIfs, elseExpr)
 }
 
 func (p *Parser) parseVarArgs() ast.Expr {
-	return &ast.VarArgs{BaseNode: ast.BaseNode{Position: p.curToken.Pos}}
+	return p.factory.VarArgs(p.curToken.Pos)
 }
 
 func (p *Parser) parseFunctionCallStringOrTable(left ast.Expr) ast.Expr {
-	call := &ast.FunctionCall{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Function: left,
-		Args:     []ast.Expr{},
-	}
+	pos := p.curToken.Pos
+	args := []ast.Expr{}
 
 	switch p.curToken.Type {
 	case lexer.STRING:
-		call.Args = append(call.Args, p.parseStringLiteral())
+		args = append(args, p.parseStringLiteral())
 	case lexer.LBRACE:
-		call.Args = append(call.Args, p.parseTableLiteral())
+		args = append(args, p.parseTableLiteral())
 	}
 
-	return call
+	return p.factory.FunctionCall(pos, left, args)
+}
+
+func (p *Parser) parseFunctionCall(function ast.Expr) ast.Expr {
+	pos := p.curToken.Pos
+	args := []ast.Expr{}
+
+	if p.peekToken.Type != lexer.RPAREN {
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+		for p.peekToken.Type == lexer.COMMA {
+			p.nextToken()
+			p.nextToken()
+			args = append(args, p.parseExpression(LOWEST))
+		}
+	}
+
+	p.expectPeek(lexer.RPAREN)
+	return p.factory.FunctionCall(pos, function, args)
 }

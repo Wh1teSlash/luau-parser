@@ -36,91 +36,80 @@ func (p *Parser) parseType(precedence int) ast.TypeNode {
 }
 
 func (p *Parser) parsePrimitiveType() ast.TypeNode {
-	return &ast.PrimitiveType{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Name:     p.curToken.Literal,
-	}
+	return p.factory.PrimitiveType(p.curToken.Pos, p.curToken.Literal)
 }
 
 func (p *Parser) parseUnionType(left ast.TypeNode) ast.TypeNode {
-	node := &ast.UnionType{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Left:     left,
-	}
-
+	pos := p.curToken.Pos
 	precedence := TYPE_UNION
 	p.nextToken()
-	node.Right = p.parseType(precedence)
+	right := p.parseType(precedence)
 
-	return node
+	return p.factory.UnionType(pos, left, right)
 }
 
 func (p *Parser) parseOptionalType(left ast.TypeNode) ast.TypeNode {
-	return &ast.OptionalType{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		BaseType: left,
-	}
+	return p.factory.OptionalType(p.curToken.Pos, left)
 }
 
 func (p *Parser) parseTableType() ast.TypeNode {
-	node := &ast.TableType{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Fields:   []*ast.TableTypeField{},
-	}
+	pos := p.curToken.Pos
+	fields := []*ast.TableTypeField{}
 
 	if p.peekToken.Type == lexer.RBRACE {
 		p.nextToken()
-		return node
+		return p.factory.TableType(pos, fields)
 	}
 
 	for p.peekToken.Type != lexer.RBRACE && p.peekToken.Type != lexer.EOF {
 		p.nextToken()
-		field := &ast.TableTypeField{}
+
+		var key, value ast.TypeNode
+		var keyName string
+		isAccess := false
 
 		if p.curToken.Type == lexer.LBRACKET {
 			p.nextToken()
-			field.Key = p.parseType(TYPE_LOWEST)
+			key = p.parseType(TYPE_LOWEST)
 			p.expectPeek(lexer.RBRACKET)
 			p.expectPeek(lexer.COLON)
 			p.nextToken()
-			field.Value = p.parseType(TYPE_LOWEST)
-			field.IsAccess = true
+			value = p.parseType(TYPE_LOWEST)
+			isAccess = true
 		} else if p.curToken.Type == lexer.IDENT && p.peekToken.Type == lexer.COLON {
-			field.KeyName = p.curToken.Literal
+			keyName = p.curToken.Literal
 			p.nextToken()
 			p.nextToken()
-			field.Value = p.parseType(TYPE_LOWEST)
+			value = p.parseType(TYPE_LOWEST)
 		} else {
-			field.Value = p.parseType(TYPE_LOWEST)
+			value = p.parseType(TYPE_LOWEST)
 		}
 
-		node.Fields = append(node.Fields, field)
+		fields = append(fields, p.factory.TableTypeField(key, keyName, value, isAccess))
+
 		if p.peekToken.Type == lexer.COMMA || p.peekToken.Type == lexer.SEMICOLON {
 			p.nextToken()
 		}
 	}
 	p.expectPeek(lexer.RBRACE)
-	return node
+	return p.factory.TableType(pos, fields)
 }
 
 func (p *Parser) parseGenericType(left ast.TypeNode) ast.TypeNode {
-	node := &ast.GenericType{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		BaseType: left,
-		Types:    []ast.TypeNode{},
-	}
+	pos := p.curToken.Pos
+	types := []ast.TypeNode{}
 
 	p.nextToken()
-	node.Types = append(node.Types, p.parseType(TYPE_LOWEST))
+	types = append(types, p.parseType(TYPE_LOWEST))
 
 	for p.peekToken.Type == lexer.COMMA {
 		p.nextToken()
 		p.nextToken()
-		node.Types = append(node.Types, p.parseType(TYPE_LOWEST))
+		types = append(types, p.parseType(TYPE_LOWEST))
 	}
 
 	p.expectPeek(lexer.GT)
-	return node
+	return p.factory.GenericType(pos, left, types)
 }
 
 func (p *Parser) parseParenType() ast.TypeNode {

@@ -17,6 +17,8 @@ type Parser struct {
 	l      *lexer.Lexer
 	errors []error
 
+	factory *ast.NodeFactory
+
 	curToken  lexer.Token
 	peekToken lexer.Token
 
@@ -27,10 +29,11 @@ type Parser struct {
 	infixTypeFns  map[lexer.TokenType]infixTypeFn
 }
 
-func New(l *lexer.Lexer) *Parser {
+func New(l *lexer.Lexer, factory *ast.NodeFactory) *Parser {
 	p := &Parser{
 		l:              l,
 		errors:         []error{},
+		factory:        factory,
 		prefixParseFns: make(map[lexer.TokenType]prefixParseFn),
 		infixParseFns:  make(map[lexer.TokenType]infixParseFn),
 	}
@@ -128,24 +131,21 @@ func (p *Parser) curPrecedence() int {
 }
 
 func (p *Parser) ParseProgram() *ast.Program {
-	program := &ast.Program{
-		BaseNode: ast.BaseNode{Position: p.curToken.Pos},
-		Body:     []ast.Stmt{},
-	}
+	pos := p.curToken.Pos
+	body := []ast.Stmt{}
 
 	for p.curToken.Type != lexer.EOF {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			program.Body = append(program.Body, stmt)
+			body = append(body, stmt)
 		} else {
 			p.synchronize()
 		}
 		p.nextToken()
 	}
 
-	return program
+	return p.factory.Program(pos, body)
 }
-
 func (p *Parser) synchronize() {
 	p.nextToken()
 
@@ -165,10 +165,8 @@ func (p *Parser) synchronize() {
 }
 
 func (p *Parser) parseBlock() *ast.Block {
-	block := &ast.Block{
-		BaseNode:   ast.BaseNode{Position: p.curToken.Pos},
-		Statements: []ast.Stmt{},
-	}
+	pos := p.curToken.Pos
+	statements := []ast.Stmt{}
 
 	for p.curToken.Type != lexer.END &&
 		p.curToken.Type != lexer.ELSE &&
@@ -178,10 +176,10 @@ func (p *Parser) parseBlock() *ast.Block {
 
 		stmt := p.parseStatement()
 		if stmt != nil {
-			block.Statements = append(block.Statements, stmt)
+			statements = append(statements, stmt)
 		}
 		p.nextToken()
 	}
 
-	return block
+	return p.factory.Block(pos, statements)
 }
