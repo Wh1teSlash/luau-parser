@@ -26,22 +26,18 @@ import (
 )
 
 func main() {
-
 	input := `
 	local x = 5
 	local y = 6
 	print(x + 12 - y)
 	`
-	
 	// 1. Initialize Lexer and Arena Factory
-
 	l := lexer.New(input)
 	factory := ast.NewFactory()
 
 	// 2. Parse the program
 	p := parser.New(l, factory)
 	program := p.ParseProgram()
-
 
 	if len(p.Errors()) > 0 {
 		for _, err := range p.Errors() {
