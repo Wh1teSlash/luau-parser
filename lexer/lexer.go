@@ -90,9 +90,21 @@ func (l *Lexer) NextToken() Token {
 		}
 	case '-':
 		if l.peekChar() == '-' {
-			tok.Literal = l.readLineComment()
-			tok.Type = COMMENT
 			tok.Pos = pos
+			tok.Type = COMMENT
+
+			l.readChar()
+			l.readChar()
+
+			if l.ch == '[' && (l.peekChar() == '[' || l.peekChar() == '=') {
+				tok.Literal = l.readMultiLineString()
+			} else {
+				position := l.position
+				for l.ch != '\n' && l.ch != 0 {
+					l.readChar()
+				}
+				tok.Literal = l.input[position:l.position]
+			}
 			return tok
 		} else if l.peekChar() == '=' {
 			tok = l.makeTwoCharToken(MINUS_ASSIGN, pos)
@@ -176,7 +188,14 @@ func (l *Lexer) NextToken() Token {
 	case '}':
 		tok = Token{Type: RBRACE, Literal: string(l.ch), Pos: pos}
 	case '[':
-		tok = Token{Type: LBRACKET, Literal: string(l.ch), Pos: pos}
+		if l.peekChar() == '[' || l.peekChar() == '=' {
+			tok.Type = STRING
+			tok.Literal = l.readMultiLineString()
+			tok.Pos = pos
+			return tok
+		} else {
+			tok = Token{Type: LBRACKET, Literal: string(l.ch), Pos: pos}
+		}
 	case ']':
 		tok = Token{Type: RBRACKET, Literal: string(l.ch), Pos: pos}
 
@@ -226,6 +245,13 @@ func (l *Lexer) makeTwoCharToken(tokenType TokenType, pos ast.Position) Token {
 	return Token{Type: tokenType, Literal: literal, Pos: pos}
 }
 
+func (l *Lexer) peekCharOffset(offset int) byte {
+	if l.readPosition+offset >= len(l.input) {
+		return 0
+	}
+	return l.input[l.readPosition+offset]
+}
+
 func (l *Lexer) readIdentifier() string {
 	position := l.position
 	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' {
@@ -237,6 +263,24 @@ func (l *Lexer) readIdentifier() string {
 func (l *Lexer) readNumber() (string, TokenType) {
 	position := l.position
 	tokType := INT
+
+	if l.ch == '0' {
+		if l.peekChar() == 'x' || l.peekChar() == 'X' {
+			l.readChar()
+			l.readChar()
+			for isHexDigit(l.ch) || l.ch == '_' {
+				l.readChar()
+			}
+			return l.input[position:l.position], tokType
+		} else if l.peekChar() == 'b' || l.peekChar() == 'B' {
+			l.readChar()
+			l.readChar()
+			for l.ch == '0' || l.ch == '1' || l.ch == '_' {
+				l.readChar()
+			}
+			return l.input[position:l.position], tokType
+		}
+	}
 
 	for isDigit(l.ch) || l.ch == '.' || l.ch == 'e' || l.ch == 'E' || l.ch == '_' {
 		if l.ch == '.' {
@@ -268,14 +312,50 @@ func (l *Lexer) readString(quote byte) string {
 	return l.input[position:l.position]
 }
 
-func (l *Lexer) readLineComment() string {
-	l.readChar()
+func (l *Lexer) readMultiLineString() string {
 	l.readChar()
 
-	position := l.position
-	for l.ch != '\n' && l.ch != 0 {
+	eqCount := 0
+	for l.ch == '=' {
+		eqCount++
 		l.readChar()
 	}
+
+	if l.ch == '[' {
+		l.readChar()
+	}
+
+	if l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
+	}
+
+	position := l.position
+
+	for l.ch != 0 {
+		if l.ch == ']' {
+			closingEq := 0
+
+			for l.peekCharOffset(closingEq) == '=' {
+				closingEq++
+			}
+
+			if closingEq == eqCount && l.peekCharOffset(closingEq) == ']' {
+				str := l.input[position:l.position]
+
+				for i := 0; i < closingEq+2; i++ {
+					l.readChar()
+				}
+				return str
+			}
+		}
+
+		if l.ch == '\n' {
+			l.line++
+			l.column = 0
+		}
+		l.readChar()
+	}
+
 	return l.input[position:l.position]
 }
 
@@ -285,4 +365,8 @@ func isLetter(ch byte) bool {
 
 func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func isHexDigit(ch byte) bool {
+	return isDigit(ch) || ('a' <= ch && ch <= 'f') || ('A' <= ch && ch <= 'F')
 }
