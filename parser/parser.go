@@ -60,6 +60,8 @@ func New(l *lexer.Lexer, factory *ast.NodeFactory) *Parser {
 	p.registerInfix(lexer.STRING, p.parseFunctionCallStringOrTable)
 	p.registerInfix(lexer.LBRACE, p.parseFunctionCallStringOrTable)
 	p.registerPrefix(lexer.INTERP_BEGIN, p.parseInterpolatedString)
+	p.registerPrefix(lexer.TYPE, p.parseIdentifier)
+	p.registerPrefix(lexer.EXPORT, p.parseIdentifier)
 
 	p.prefixTypeFns = make(map[lexer.TokenType]prefixTypeFn)
 	p.infixTypeFns = make(map[lexer.TokenType]infixTypeFn)
