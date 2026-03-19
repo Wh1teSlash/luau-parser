@@ -116,7 +116,7 @@ func (p *Parser) parseTableLiteral() ast.Expr {
 			p.nextToken()
 			value = p.parseExpression(LOWEST)
 
-		} else if p.curToken.Type == lexer.IDENT && p.peekToken.Type == lexer.ASSIGN {
+		} else if (p.curToken.Type == lexer.IDENT || p.curToken.Type == lexer.TYPE || p.curToken.Type == lexer.EXPORT) && p.peekToken.Type == lexer.ASSIGN {
 			key = p.factory.Literal(p.curToken.Pos, "string", p.curToken.Literal)
 			p.nextToken()
 			p.nextToken()
@@ -170,9 +170,22 @@ func (p *Parser) parseIndexAccess(left ast.Expr) ast.Expr {
 	return p.factory.IndexAccess(pos, left, index)
 }
 
+func (p *Parser) expectPeekIdent() bool {
+	if p.peekToken.Type == lexer.IDENT ||
+		p.peekToken.Type == lexer.TYPE ||
+		p.peekToken.Type == lexer.EXPORT {
+		p.nextToken()
+		return true
+	}
+	err := fmt.Errorf("expected next token to be IDENT, got %s instead at line %d, col %d",
+		p.peekToken.Type, p.peekToken.Pos.Line, p.peekToken.Pos.Column)
+	p.errors = append(p.errors, err)
+	return false
+}
+
 func (p *Parser) parseFieldAccess(left ast.Expr) ast.Expr {
 	pos := p.curToken.Pos
-	if !p.expectPeek(lexer.IDENT) {
+	if !p.expectPeekIdent() {
 		return nil
 	}
 	return p.factory.FieldAccess(pos, left, p.curToken.Literal)
@@ -180,7 +193,7 @@ func (p *Parser) parseFieldAccess(left ast.Expr) ast.Expr {
 
 func (p *Parser) parseMethodCall(left ast.Expr) ast.Expr {
 	pos := p.curToken.Pos
-	if !p.expectPeek(lexer.IDENT) {
+	if !p.expectPeekIdent() {
 		return nil
 	}
 	method := p.curToken.Literal

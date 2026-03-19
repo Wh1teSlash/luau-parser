@@ -46,9 +46,16 @@ func (p *Parser) parseStatement() ast.Stmt {
 	case lexer.DO:
 		return p.parseDoBlock()
 	case lexer.TYPE:
-		return p.parseTypeAlias(false)
+		if p.peekToken.Type == lexer.IDENT {
+			return p.parseTypeAlias(false)
+		}
+		return p.parseExpressionStatement()
+
 	case lexer.EXPORT:
-		return p.parseExportStatement()
+		if p.peekToken.Type == lexer.TYPE {
+			return p.parseExportStatement()
+		}
+		return p.parseExpressionStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -211,7 +218,7 @@ func (p *Parser) parseLocalStatement(attributes []*ast.Attribute) ast.Stmt {
 		p.nextToken()
 		p.nextToken()
 
-		if p.curToken.Type != lexer.IDENT {
+		if p.curToken.Type != lexer.IDENT && p.curToken.Type != lexer.TYPE && p.curToken.Type != lexer.EXPORT {
 			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
 			return nil
 		}
@@ -242,7 +249,9 @@ func (p *Parser) parseLocalStatement(attributes []*ast.Attribute) ast.Stmt {
 
 	for {
 		p.nextToken()
-		if p.curToken.Type != lexer.IDENT {
+		if p.curToken.Type != lexer.IDENT &&
+			p.curToken.Type != lexer.TYPE &&
+			p.curToken.Type != lexer.EXPORT {
 			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
 			return nil
 		}
