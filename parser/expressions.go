@@ -97,11 +97,13 @@ func (p *Parser) parseFloatLiteral() ast.Expr {
 func (p *Parser) parseTableLiteral() ast.Expr {
 	pos := p.curToken.Pos
 	fields := []*ast.TableField{}
+	closedBrace := false
 
 	for p.peekToken.Type != lexer.RBRACE && p.peekToken.Type != lexer.EOF {
 		p.nextToken()
 
 		if p.curToken.Type == lexer.RBRACE {
+			closedBrace = true
 			break
 		}
 
@@ -116,7 +118,10 @@ func (p *Parser) parseTableLiteral() ast.Expr {
 			p.nextToken()
 			value = p.parseExpression(LOWEST)
 
-		} else if (p.curToken.Type == lexer.IDENT || p.curToken.Type == lexer.TYPE || p.curToken.Type == lexer.EXPORT) && p.peekToken.Type == lexer.ASSIGN {
+		} else if (p.curToken.Type == lexer.IDENT ||
+			p.curToken.Type == lexer.TYPE ||
+			p.curToken.Type == lexer.EXPORT) &&
+			p.peekToken.Type == lexer.ASSIGN {
 			key = p.factory.Literal(p.curToken.Pos, "string", p.curToken.Literal)
 			p.nextToken()
 			p.nextToken()
@@ -131,12 +136,13 @@ func (p *Parser) parseTableLiteral() ast.Expr {
 		if p.peekToken.Type == lexer.COMMA || p.peekToken.Type == lexer.SEMICOLON {
 			p.nextToken()
 		} else if p.peekToken.Type != lexer.RBRACE {
-			p.errors = append(p.errors, fmt.Errorf("expected ',' or ';' or '}' in table literal, got %s", p.peekToken.Type))
+			p.errors = append(p.errors, fmt.Errorf(
+				"expected ',' or ';' or '}' in table literal, got %s", p.peekToken.Type))
 			return nil
 		}
 	}
 
-	if p.curToken.Type != lexer.RBRACE {
+	if !closedBrace {
 		if !p.expectPeek(lexer.RBRACE) {
 			return nil
 		}

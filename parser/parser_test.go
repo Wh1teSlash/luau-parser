@@ -1235,3 +1235,71 @@ func walkStmt(t *testing.T, stmt ast.Stmt) {
 		}
 	}
 }
+
+func TestNestedTableLiteralAsLastField(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		fieldCount int
+	}{
+		{
+			name:       "nested table as last field",
+			input:      `local t = { 1, {2, 3} }`,
+			fieldCount: 2,
+		},
+		{
+			name:       "nested table as non-last field",
+			input:      `local t = { {1, 2}, 3 }`,
+			fieldCount: 2,
+		},
+		{
+			name:       "all nested tables",
+			input:      `local t = { {1}, {2}, {3} }`,
+			fieldCount: 3,
+		},
+		{
+			name:       "deeply nested tables",
+			input:      `local t = { 1, { 2, {3, 4} } }`,
+			fieldCount: 2,
+		},
+		{
+			name:       "nested table then statement",
+			input:      "local t = { 1, {2, 3} }\nprint(t)",
+			fieldCount: 2,
+		},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+
+			if len(program.Body) == 0 {
+				t.Fatal("expected at least one statement, got none")
+			}
+
+			assign, ok := program.Body[0].(*ast.LocalAssignment)
+			if !ok {
+				t.Fatalf("expected *ast.LocalAssignment, got %T", program.Body[0])
+			}
+			if len(assign.Values) == 0 {
+				t.Fatal("expected at least one value in assignment")
+			}
+
+			table, ok := assign.Values[0].(*ast.TableLiteral)
+			if !ok {
+				t.Fatalf("expected *ast.TableLiteral as assigned value, got %T", assign.Values[0])
+			}
+			if len(table.Fields) != tt.fieldCount {
+				t.Errorf("expected %d fields, got %d", tt.fieldCount, len(table.Fields))
+			}
+
+			for i, field := range table.Fields {
+				if field == nil {
+					t.Errorf("Fields[%d] is nil", i)
+				}
+			}
+		})
+	}
+}
