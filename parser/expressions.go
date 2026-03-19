@@ -336,11 +336,17 @@ func (p *Parser) parseFunctionCall(function ast.Expr) ast.Expr {
 
 	if p.peekToken.Type != lexer.RPAREN {
 		p.nextToken()
-		args = append(args, p.parseExpression(LOWEST))
+		arg := p.parseExpression(LOWEST)
+		if arg != nil {
+			args = append(args, arg)
+		}
 		for p.peekToken.Type == lexer.COMMA {
 			p.nextToken()
 			p.nextToken()
-			args = append(args, p.parseExpression(LOWEST))
+			arg = p.parseExpression(LOWEST)
+			if arg != nil {
+				args = append(args, arg)
+			}
 		}
 	}
 

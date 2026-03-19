@@ -475,7 +475,10 @@ func (p *Parser) parseReturnStatement() ast.Stmt {
 
 	p.nextToken()
 	for {
-		values = append(values, p.parseExpression(LOWEST))
+		val := p.parseExpression(LOWEST)
+		if val != nil {
+			values = append(values, val)
+		}
 		if p.peekToken.Type != lexer.COMMA {
 			break
 		}
@@ -486,12 +489,20 @@ func (p *Parser) parseReturnStatement() ast.Stmt {
 }
 
 func (p *Parser) parseExpressionStatement() ast.Stmt {
-	targets := []ast.Expr{p.parseExpression(LOWEST)}
+	first := p.parseExpression(LOWEST)
+	if first == nil {
+		return nil
+	}
+	targets := []ast.Expr{first}
 
 	for p.peekToken.Type == lexer.COMMA {
 		p.nextToken()
 		p.nextToken()
-		targets = append(targets, p.parseExpression(LOWEST))
+		expr := p.parseExpression(LOWEST)
+		if expr == nil {
+			return nil
+		}
+		targets = append(targets, expr)
 	}
 
 	if p.isAssignmentOperator(p.peekToken.Type) {
