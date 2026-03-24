@@ -325,31 +325,44 @@ func (l *Lexer) readIdentifier() string {
 
 func (l *Lexer) readNumber() (string, TokenType) {
 	position := l.position
-	tokType := INT
 
 	if l.ch == '0' {
-		if l.peekChar() == 'x' || l.peekChar() == 'X' {
-			l.readChar()
-			l.readChar()
-			for isHexDigit(l.ch) || l.ch == '_' {
-				l.readChar()
-			}
-			return l.input[position:l.position], tokType
-		} else if l.peekChar() == 'b' || l.peekChar() == 'B' {
-			l.readChar()
-			l.readChar()
-			for l.ch == '0' || l.ch == '1' || l.ch == '_' {
-				l.readChar()
-			}
-			return l.input[position:l.position], tokType
+		switch {
+		case l.peekChar() == 'x' || l.peekChar() == 'X':
+			return l.readHexNumber(position)
+		case l.peekChar() == 'b' || l.peekChar() == 'B':
+			return l.readBinaryNumber(position)
 		}
 	}
 
+	return l.readDecimalNumber(position)
+}
+
+func (l *Lexer) readHexNumber(position int) (string, TokenType) {
+	l.readChar()
+	l.readChar()
+	for isHexDigit(l.ch) || l.ch == '_' {
+		l.readChar()
+	}
+	return l.input[position:l.position], INT
+}
+
+func (l *Lexer) readBinaryNumber(position int) (string, TokenType) {
+	l.readChar()
+	l.readChar()
+	for l.ch == '0' || l.ch == '1' || l.ch == '_' {
+		l.readChar()
+	}
+	return l.input[position:l.position], INT
+}
+
+func (l *Lexer) readDecimalNumber(position int) (string, TokenType) {
+	tokType := INT
 	for isDigit(l.ch) || l.ch == '.' || l.ch == 'e' || l.ch == 'E' || l.ch == '_' {
-		if l.ch == '.' {
+		switch l.ch {
+		case '.':
 			tokType = FLOAT
-		}
-		if l.ch == 'e' || l.ch == 'E' {
+		case 'e', 'E':
 			tokType = FLOAT
 			if l.peekChar() == '+' || l.peekChar() == '-' {
 				l.readChar()
