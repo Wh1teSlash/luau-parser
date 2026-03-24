@@ -2,96 +2,194 @@ package lexer
 
 import "github.com/Wh1teSlash/luau-parser/ast"
 
-type TokenType string
+type TokenType uint8
 
 const (
-	ILLEGAL TokenType = "ILLEGAL"
-	EOF     TokenType = "EOF"
-	COMMENT TokenType = "COMMENT"
+	ILLEGAL TokenType = iota
+	EOF
+	COMMENT
 
-	IDENT  TokenType = "IDENT"
-	INT    TokenType = "INT"
-	FLOAT  TokenType = "FLOAT"
-	STRING TokenType = "STRING"
+	IDENT
+	INT
+	FLOAT
+	STRING
 
-	PLUS      TokenType = "+"
-	MINUS     TokenType = "-"
-	ASTERISK  TokenType = "*"
-	SLASH     TokenType = "/"
-	FLOOR_DIV TokenType = "//"
-	MODULO    TokenType = "%"
-	CARET     TokenType = "^"
-	CONCAT    TokenType = ".."
-	HASH      TokenType = "#"
+	PLUS
+	MINUS
+	ASTERISK
+	SLASH
+	FLOOR_DIV
+	MODULO
+	CARET
+	CONCAT
+	HASH
 
-	EQ     TokenType = "=="
-	NOT_EQ TokenType = "~="
-	LT     TokenType = "<"
-	LTE    TokenType = "<="
-	GT     TokenType = ">"
-	GTE    TokenType = ">="
+	EQ
+	NOT_EQ
+	LT
+	LTE
+	GT
+	GTE
 
-	ASSIGN           TokenType = "="
-	PLUS_ASSIGN      TokenType = "+="
-	MINUS_ASSIGN     TokenType = "-="
-	ASTERISK_ASSIGN  TokenType = "*="
-	SLASH_ASSIGN     TokenType = "/="
-	FLOOR_DIV_ASSIGN TokenType = "//="
-	MODULO_ASSIGN    TokenType = "%="
-	CARET_ASSIGN     TokenType = "^="
-	CONCAT_ASSIGN    TokenType = "..="
+	ASSIGN
+	PLUS_ASSIGN
+	MINUS_ASSIGN
+	ASTERISK_ASSIGN
+	SLASH_ASSIGN
+	FLOOR_DIV_ASSIGN
+	MODULO_ASSIGN
+	CARET_ASSIGN
+	CONCAT_ASSIGN
 
-	COMMA        TokenType = ","
-	SEMICOLON    TokenType = ";"
-	COLON        TokenType = ":"
-	DOUBLE_COLON TokenType = "::"
-	DOT          TokenType = "."
-	ELLIPSIS     TokenType = "..."
+	COMMA
+	SEMICOLON
+	COLON
+	DOUBLE_COLON
+	DOT
+	ELLIPSIS
 
-	LPAREN   TokenType = "("
-	RPAREN   TokenType = ")"
-	LBRACE   TokenType = "{"
-	RBRACE   TokenType = "}"
-	LBRACKET TokenType = "["
-	RBRACKET TokenType = "]"
+	LPAREN
+	RPAREN
+	LBRACE
+	RBRACE
+	LBRACKET
+	RBRACKET
 
-	ARROW     TokenType = "->"
-	QUESTION  TokenType = "?"
-	PIPE      TokenType = "|"
-	AMPERSAND TokenType = "&"
-	AT        TokenType = "@"
+	ARROW
+	QUESTION
+	PIPE
+	AMPERSAND
+	AT
 
-	AND      TokenType = "AND"
-	BREAK    TokenType = "BREAK"
-	CONTINUE TokenType = "CONTINUE"
-	DO       TokenType = "DO"
-	ELSE     TokenType = "ELSE"
-	ELSEIF   TokenType = "ELSEIF"
-	END      TokenType = "END"
-	FALSE    TokenType = "FALSE"
-	FOR      TokenType = "FOR"
-	FUNCTION TokenType = "FUNCTION"
-	IF       TokenType = "IF"
-	IN       TokenType = "IN"
-	LOCAL    TokenType = "LOCAL"
-	NIL      TokenType = "NIL"
-	NOT      TokenType = "NOT"
-	OR       TokenType = "OR"
-	REPEAT   TokenType = "REPEAT"
-	RETURN   TokenType = "RETURN"
-	THEN     TokenType = "THEN"
-	TRUE     TokenType = "TRUE"
-	UNTIL    TokenType = "UNTIL"
-	WHILE    TokenType = "WHILE"
-	CONST    TokenType = "CONST"
+	AND
+	BREAK
+	CONTINUE
+	DO
+	ELSE
+	ELSEIF
+	END
+	FALSE
+	FOR
+	FUNCTION
+	IF
+	IN
+	LOCAL
+	NIL
+	NOT
+	OR
+	REPEAT
+	RETURN
+	THEN
+	TRUE
+	UNTIL
+	WHILE
 
-	EXPORT TokenType = "EXPORT"
-	TYPE   TokenType = "TYPE"
+	EXPORT
+	TYPE
+	CONST
 
-	INTERP_BEGIN TokenType = "INTERP_BEGIN"
-	INTERP_MID   TokenType = "INTERP_MID"
-	INTERP_END   TokenType = "INTERP_END"
+	INTERP_BEGIN
+	INTERP_MID
+	INTERP_END
+
+	tokenTypeCount
 )
+
+var tokenTypeNames = [tokenTypeCount]string{
+	ILLEGAL: "ILLEGAL",
+	EOF:     "EOF",
+	COMMENT: "COMMENT",
+
+	IDENT:  "IDENT",
+	INT:    "INT",
+	FLOAT:  "FLOAT",
+	STRING: "STRING",
+
+	PLUS:      "+",
+	MINUS:     "-",
+	ASTERISK:  "*",
+	SLASH:     "/",
+	FLOOR_DIV: "//",
+	MODULO:    "%",
+	CARET:     "^",
+	CONCAT:    "..",
+	HASH:      "#",
+
+	EQ:     "==",
+	NOT_EQ: "~=",
+	LT:     "<",
+	LTE:    "<=",
+	GT:     ">",
+	GTE:    ">=",
+
+	ASSIGN:           "=",
+	PLUS_ASSIGN:      "+=",
+	MINUS_ASSIGN:     "-=",
+	ASTERISK_ASSIGN:  "*=",
+	SLASH_ASSIGN:     "/=",
+	FLOOR_DIV_ASSIGN: "//=",
+	MODULO_ASSIGN:    "%=",
+	CARET_ASSIGN:     "^=",
+	CONCAT_ASSIGN:    "..=",
+
+	COMMA:        ",",
+	SEMICOLON:    ";",
+	COLON:        ":",
+	DOUBLE_COLON: "::",
+	DOT:          ".",
+	ELLIPSIS:     "...",
+
+	LPAREN:   "(",
+	RPAREN:   ")",
+	LBRACE:   "{",
+	RBRACE:   "}",
+	LBRACKET: "[",
+	RBRACKET: "]",
+
+	ARROW:     "->",
+	QUESTION:  "?",
+	PIPE:      "|",
+	AMPERSAND: "&",
+	AT:        "@",
+
+	AND:      "and",
+	BREAK:    "break",
+	CONTINUE: "continue",
+	DO:       "do",
+	ELSE:     "else",
+	ELSEIF:   "elseif",
+	END:      "end",
+	FALSE:    "false",
+	FOR:      "for",
+	FUNCTION: "function",
+	IF:       "if",
+	IN:       "in",
+	LOCAL:    "local",
+	NIL:      "nil",
+	NOT:      "not",
+	OR:       "or",
+	REPEAT:   "repeat",
+	RETURN:   "return",
+	THEN:     "then",
+	TRUE:     "true",
+	UNTIL:    "until",
+	WHILE:    "while",
+
+	EXPORT: "export",
+	TYPE:   "type",
+	CONST:  "const",
+
+	INTERP_BEGIN: "INTERP_BEGIN",
+	INTERP_MID:   "INTERP_MID",
+	INTERP_END:   "INTERP_END",
+}
+
+func (t TokenType) String() string {
+	if t < tokenTypeCount {
+		return tokenTypeNames[t]
+	}
+	return "UNKNOWN"
+}
 
 type Token struct {
 	Type    TokenType
@@ -122,9 +220,9 @@ var keywords = map[string]TokenType{
 	"true":     TRUE,
 	"until":    UNTIL,
 	"while":    WHILE,
-	"const":    CONST,
 	"export":   EXPORT,
 	"type":     TYPE,
+	"const":    CONST,
 }
 
 func LookupIdent(ident string) TokenType {
