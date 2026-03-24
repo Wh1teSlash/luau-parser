@@ -15,7 +15,7 @@ func (p *Parser) parseStatement() ast.Stmt {
 	}
 
 	if len(attributes) > 0 {
-		if p.curToken.Type != lexer.LOCAL && p.curToken.Type != lexer.FUNCTION {
+		if p.curToken.Type != lexer.LOCAL && p.curToken.Type != lexer.FUNCTION && p.curToken.Type != lexer.CONST {
 			p.errors = append(p.errors, fmt.Errorf("attributes are only allowed on function declarations at line %d", p.curToken.Pos.Line))
 		}
 	}
@@ -25,6 +25,8 @@ func (p *Parser) parseStatement() ast.Stmt {
 		return p.factory.EmptyStatement(p.curToken.Pos)
 	case lexer.LOCAL:
 		return p.parseLocalStatement(attributes)
+	case lexer.CONST:
+		return p.parseConstStatement(attributes)
 	case lexer.IF:
 		return p.parseIfStatement()
 	case lexer.WHILE:
@@ -59,6 +61,96 @@ func (p *Parser) parseStatement() ast.Stmt {
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseConstStatement(attributes []*ast.Attribute) ast.Stmt {
+	pos := p.curToken.Pos
+
+	if p.peekToken.Type == lexer.FUNCTION {
+		p.nextToken()
+		p.nextToken()
+
+		if p.curToken.Type != lexer.IDENT && p.curToken.Type != lexer.TYPE && p.curToken.Type != lexer.EXPORT {
+			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
+			return nil
+		}
+		name := p.curToken.Literal
+		generics := p.parseGenericParams()
+		params, returnType := p.parseFunctionSignature()
+		p.nextToken()
+		body := p.parseBlock()
+
+		if p.curToken.Type != lexer.END {
+			p.errors = append(p.errors, fmt.Errorf("expected END, got %s", p.curToken.Type))
+		}
+
+		return p.factory.LocalFunction(pos, name, params, body,
+			ast.WithLocalGenerics(generics...),
+			ast.WithLocalReturnType(returnType),
+			ast.WithLocalAttributes(attributes...),
+			ast.AsConstFunction(),
+		)
+	}
+
+	if len(attributes) > 0 {
+		p.errors = append(p.errors, fmt.Errorf("attributes are only allowed on function declarations, not variable assignments"))
+	}
+
+	names := []string{}
+	values := []ast.Expr{}
+	types := []ast.TypeNode{}
+
+	for {
+		p.nextToken()
+		if p.curToken.Type != lexer.IDENT &&
+			p.curToken.Type != lexer.TYPE &&
+			p.curToken.Type != lexer.EXPORT {
+			p.errors = append(p.errors, fmt.Errorf("expected Identifier, got %s", p.curToken.Type))
+			return nil
+		}
+		names = append(names, p.curToken.Literal)
+
+		if p.peekToken.Type == lexer.COLON {
+			p.nextToken()
+			p.nextToken()
+			types = append(types, p.parseType(TYPE_LOWEST))
+		} else {
+			types = append(types, nil)
+		}
+
+		if p.peekToken.Type != lexer.COMMA {
+			break
+		}
+		p.nextToken()
+	}
+
+	if p.peekToken.Type != lexer.ASSIGN {
+		p.errors = append(p.errors, fmt.Errorf(
+			"const variable must be initialized at line %d, col %d",
+			p.peekToken.Pos.Line, p.peekToken.Pos.Column,
+		))
+		return nil
+	}
+
+	p.nextToken()
+	p.nextToken()
+
+	for {
+		val := p.parseExpression(LOWEST)
+		if val != nil {
+			values = append(values, val)
+		}
+		if p.peekToken.Type != lexer.COMMA {
+			break
+		}
+		p.nextToken()
+		p.nextToken()
+	}
+
+	return p.factory.LocalAssignment(pos, names, values,
+		ast.WithTypes(types...),
+		ast.AsConstAssignment(),
+	)
 }
 
 func (p *Parser) parseAttributes() []*ast.Attribute {

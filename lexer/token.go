@@ -83,6 +83,7 @@ const (
 	TRUE     TokenType = "TRUE"
 	UNTIL    TokenType = "UNTIL"
 	WHILE    TokenType = "WHILE"
+	CONST    TokenType = "CONST"
 
 	EXPORT TokenType = "EXPORT"
 	TYPE   TokenType = "TYPE"
@@ -121,6 +122,7 @@ var keywords = map[string]TokenType{
 	"true":     TRUE,
 	"until":    UNTIL,
 	"while":    WHILE,
+	"const":    CONST,
 	"export":   EXPORT,
 	"type":     TYPE,
 }

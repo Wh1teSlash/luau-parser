@@ -33,6 +33,8 @@ line]]
 		type Point = { x: number }
 		export type ID = string | number
 		if a ~= b then continue end
+		const MAX = 100
+		const name: string = "luau"
 	`
 
 	tests := []struct {
@@ -101,6 +103,16 @@ line]]
 		{"then keyword", THEN, "then"},
 		{"continue keyword", CONTINUE, "continue"},
 		{"end keyword", END, "end"},
+		{"const keyword", CONST, "const"},
+		{"const variable MAX", IDENT, "MAX"},
+		{"assign operator", ASSIGN, "="},
+		{"integer literal 100", INT, "100"},
+		{"const keyword", CONST, "const"},
+		{"const variable name", IDENT, "name"},
+		{"colon", COLON, ":"},
+		{"type annotation string", IDENT, "string"},
+		{"assign operator", ASSIGN, "="},
+		{"string literal luau", STRING, "luau"},
 
 		{"end of file", EOF, ""},
 	}
@@ -265,6 +277,7 @@ func TestKeywords(t *testing.T) {
 		{"while", WHILE},
 		{"export", EXPORT},
 		{"type", TYPE},
+		{"const", CONST},
 	}
 
 	for _, tt := range tests {
@@ -272,6 +285,105 @@ func TestKeywords(t *testing.T) {
 			l := New(tt.keyword)
 			tok := l.NextToken()
 			checkToken(t, 0, tok, tt.expectedType, tt.keyword)
+		})
+	}
+}
+
+func TestConstTokenSequences(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		tokens []struct {
+			expectedType    TokenType
+			expectedLiteral string
+		}
+	}{
+		{
+			name:  "simple const declaration",
+			input: `const x = 5`,
+			tokens: []struct {
+				expectedType    TokenType
+				expectedLiteral string
+			}{
+				{CONST, "const"},
+				{IDENT, "x"},
+				{ASSIGN, "="},
+				{INT, "5"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "typed const declaration",
+			input: `const x: number = 5`,
+			tokens: []struct {
+				expectedType    TokenType
+				expectedLiteral string
+			}{
+				{CONST, "const"},
+				{IDENT, "x"},
+				{COLON, ":"},
+				{IDENT, "number"},
+				{ASSIGN, "="},
+				{INT, "5"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "multi-name const declaration",
+			input: `const a, b = 1, 2`,
+			tokens: []struct {
+				expectedType    TokenType
+				expectedLiteral string
+			}{
+				{CONST, "const"},
+				{IDENT, "a"},
+				{COMMA, ","},
+				{IDENT, "b"},
+				{ASSIGN, "="},
+				{INT, "1"},
+				{COMMA, ","},
+				{INT, "2"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "const function declaration",
+			input: `const function f() end`,
+			tokens: []struct {
+				expectedType    TokenType
+				expectedLiteral string
+			}{
+				{CONST, "const"},
+				{FUNCTION, "function"},
+				{IDENT, "f"},
+				{LPAREN, "("},
+				{RPAREN, ")"},
+				{END, "end"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "const not confused with identifier prefix",
+			input: `constant = 5`,
+			tokens: []struct {
+				expectedType    TokenType
+				expectedLiteral string
+			}{
+				{IDENT, "constant"},
+				{ASSIGN, "="},
+				{INT, "5"},
+				{EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.tokens {
+				tok := l.NextToken()
+				checkToken(t, i, tok, expected.expectedType, expected.expectedLiteral)
+			}
 		})
 	}
 }

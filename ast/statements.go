@@ -15,13 +15,14 @@ func (a *Assignment) statementNode()       {}
 
 type LocalAssignment struct {
 	BaseNode
-	Names  []string
-	Types  []TypeNode
-	Values []Expr
+	Names   []string
+	Types   []TypeNode
+	Values  []Expr
+	IsConst bool
 }
 
 func (l *LocalAssignment) String() string {
-	return fmt.Sprintf("LocalAssignment{names: %d}", len(l.Names))
+	return fmt.Sprintf("LocalAssignment{names: %d, const: %v}", len(l.Names), l.IsConst)
 }
 func (l *LocalAssignment) Accept(v Visitor) any { return v.VisitLocalAssignment(l) }
 func (l *LocalAssignment) statementNode()       {}
@@ -31,6 +32,12 @@ type LocalAssignmentOption func(*LocalAssignment)
 func WithTypes(types ...TypeNode) LocalAssignmentOption {
 	return func(l *LocalAssignment) {
 		l.Types = types
+	}
+}
+
+func AsConstAssignment() LocalAssignmentOption {
+	return func(l *LocalAssignment) {
+		l.IsConst = true
 	}
 }
 
@@ -176,10 +183,11 @@ type LocalFunction struct {
 	Parameters []*Parameter
 	Body       *Block
 	ReturnType TypeNode
+	IsConst    bool
 }
 
 func (l *LocalFunction) String() string {
-	return fmt.Sprintf("LocalFunction{name: %s, params: %d}", l.Name, len(l.Parameters))
+	return fmt.Sprintf("LocalFunction{name: %s, params: %d, const: %v}", l.Name, len(l.Parameters), l.IsConst)
 }
 func (l *LocalFunction) Accept(v Visitor) any { return v.VisitLocalFunction(l) }
 func (l *LocalFunction) statementNode()       {}
@@ -201,6 +209,12 @@ func WithLocalReturnType(returnType TypeNode) LocalFunctionOption {
 func WithLocalAttributes(attributes ...*Attribute) LocalFunctionOption {
 	return func(l *LocalFunction) {
 		l.Attributes = append(l.Attributes, attributes...)
+	}
+}
+
+func AsConstFunction() LocalFunctionOption {
+	return func(l *LocalFunction) {
+		l.IsConst = true
 	}
 }
 

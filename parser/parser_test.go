@@ -1303,3 +1303,260 @@ func TestNestedTableLiteralAsLastField(t *testing.T) {
 		})
 	}
 }
+
+func TestConstAssignment(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		names      []string
+		valueCount int
+	}{
+		{"simple const", `const x = 5`, []string{"x"}, 1},
+		{"multi-name const", `const a, b = 1, 2`, []string{"a", "b"}, 2},
+		{"const string", `const s = "hello"`, []string{"s"}, 1},
+		{"const bool", `const flag = true`, []string{"flag"}, 1},
+		{"const expression", `const n = 1 + 2`, []string{"n"}, 1},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+
+			if len(program.Body) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(program.Body))
+			}
+
+			stmt, ok := program.Body[0].(*ast.LocalAssignment)
+			if !ok {
+				t.Fatalf("expected *ast.LocalAssignment, got %T", program.Body[0])
+			}
+			if !stmt.IsConst {
+				t.Error("expected IsConst to be true")
+			}
+			if len(stmt.Names) != len(tt.names) {
+				t.Fatalf("expected %d name(s), got %d", len(tt.names), len(stmt.Names))
+			}
+			for i, name := range tt.names {
+				if stmt.Names[i] != name {
+					t.Errorf("expected name[%d] = %q, got %q", i, name, stmt.Names[i])
+				}
+			}
+			if len(stmt.Values) != tt.valueCount {
+				t.Errorf("expected %d value(s), got %d", tt.valueCount, len(stmt.Values))
+			}
+		})
+	}
+}
+
+func TestConstTypedAssignment(t *testing.T) {
+	factory := ast.NewFactory()
+
+	t.Run("single typed const", func(t *testing.T) {
+		p, program := newParser(t, factory, `const x: number = 5`)
+		checkParserErrors(t, p)
+
+		stmt, ok := program.Body[0].(*ast.LocalAssignment)
+		if !ok {
+			t.Fatalf("expected *ast.LocalAssignment, got %T", program.Body[0])
+		}
+		if !stmt.IsConst {
+			t.Error("expected IsConst to be true")
+		}
+		if len(stmt.Types) != 1 || formatType(stmt.Types[0]) != "number" {
+			t.Errorf("expected type annotation %q, got %q", "number", formatType(stmt.Types[0]))
+		}
+		testLiteralObject(t, stmt.Values[0], int64(5))
+	})
+
+	t.Run("typed const with union type", func(t *testing.T) {
+		p, program := newParser(t, factory, `const id: string | number = "abc"`)
+		checkParserErrors(t, p)
+
+		stmt, ok := program.Body[0].(*ast.LocalAssignment)
+		if !ok {
+			t.Fatalf("expected *ast.LocalAssignment, got %T", program.Body[0])
+		}
+		if !stmt.IsConst {
+			t.Error("expected IsConst to be true")
+		}
+		if formatType(stmt.Types[0]) != "string | number" {
+			t.Errorf("expected type %q, got %q", "string | number", formatType(stmt.Types[0]))
+		}
+	})
+}
+
+func TestConstFunction(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		funcName   string
+		paramCount int
+	}{
+		{"simple const function", "const function greet()\nend", "greet", 0},
+		{"const function with params", "const function add(a: number, b: number): number\nreturn a + b\nend", "add", 2},
+		{"const function with generics", "const function id<T>(v: T): T\nreturn v\nend", "id", 1},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+
+			if len(program.Body) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(program.Body))
+			}
+
+			fn, ok := program.Body[0].(*ast.LocalFunction)
+			if !ok {
+				t.Fatalf("expected *ast.LocalFunction, got %T", program.Body[0])
+			}
+			if !fn.IsConst {
+				t.Error("expected IsConst to be true")
+			}
+			if fn.Name != tt.funcName {
+				t.Errorf("expected function name %q, got %q", tt.funcName, fn.Name)
+			}
+			if len(fn.Parameters) != tt.paramCount {
+				t.Errorf("expected %d parameter(s), got %d", tt.paramCount, len(fn.Parameters))
+			}
+		})
+	}
+}
+
+func TestLocalIsNotConst(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"local variable", `local x = 5`},
+		{"local function", "local function f()\nend"},
+		{"uninitialized local", `local x`},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+
+			if len(program.Body) == 0 {
+				t.Fatal("expected at least one statement")
+			}
+
+			switch stmt := program.Body[0].(type) {
+			case *ast.LocalAssignment:
+				if stmt.IsConst {
+					t.Errorf("expected IsConst = false for local assignment, got true")
+				}
+			case *ast.LocalFunction:
+				if stmt.IsConst {
+					t.Errorf("expected IsConst = false for local function, got true")
+				}
+			default:
+				t.Errorf("expected LocalAssignment or LocalFunction, got %T", program.Body[0])
+			}
+		})
+	}
+}
+
+func TestConstErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectedErr string
+	}{
+		{
+			"const without initializer",
+			`const x`,
+			"const variable must be initialized",
+		},
+		{
+			"const with non-identifier name",
+			`const 5 = 10`,
+			"expected Identifier",
+		},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory.Reset()
+			l := lexer.New(tt.input)
+			p := New(l, factory)
+			p.ParseProgram()
+
+			errors := p.Errors()
+			if len(errors) == 0 {
+				t.Fatalf("expected a parse error containing %q, got none", tt.expectedErr)
+			}
+			for _, err := range errors {
+				if strings.Contains(err.Error(), tt.expectedErr) {
+					return
+				}
+			}
+			t.Errorf("expected error containing %q, got: %v", tt.expectedErr, errors)
+		})
+	}
+}
+
+func TestConstInTreeWalk(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"const variable", `const x = 5`},
+		{"const typed variable", `const x: number = 5`},
+		{"const multi-assignment", `const a, b = 1, 2`},
+		{"const function", "const function f()\nend"},
+		{"const function with return type", "const function f(): number\nreturn 1\nend"},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("tree walk panicked for input %q: %v", tt.input, r)
+				}
+			}()
+
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+			walkProgram(t, program)
+		})
+	}
+}
+
+func TestConstValuesAreNeverNil(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"single const", `const x = 1`},
+		{"multi const", `const a, b = 1, 2`},
+		{"const expression value", `const n = 1 + 2 * 3`},
+	}
+
+	factory := ast.NewFactory()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, program := newParser(t, factory, tt.input)
+			checkParserErrors(t, p)
+
+			for _, stmt := range program.Body {
+				assign, ok := stmt.(*ast.LocalAssignment)
+				if !ok || !assign.IsConst {
+					continue
+				}
+				for i, val := range assign.Values {
+					if val == nil {
+						t.Errorf("const LocalAssignment.Values[%d] is nil — would panic in visitor", i)
+					}
+				}
+			}
+		})
+	}
+}
