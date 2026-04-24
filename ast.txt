@@ -1,0 +1,7 @@
+Program
+  ExpressionStatement
+    FunctionCall
+      Function:
+        Identifier: print
+      Arguments:
+        Literal (Type: string, Value: "hello world!")
