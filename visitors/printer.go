@@ -373,7 +373,7 @@ func (p *Printer) VisitIdentifier(node *ast.Identifier) any {
 
 func (p *Printer) VisitLiteral(node *ast.Literal) any {
 	if node.Type == "string" {
-		p.write(fmt.Sprintf("%q", node.Value))
+		p.write(node.Value.(string))
 	} else {
 		p.write(fmt.Sprintf("%v", node.Value))
 	}
