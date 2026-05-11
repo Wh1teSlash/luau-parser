@@ -164,8 +164,104 @@ func main() {
 }
 ```
 
+## Rewriting the AST
+`ast.Rewrite` and `ast.RewriteProgram` provide a functional, copy-on-change tree rewriter. You supply an `EditFunc` that receives each node (after its children have already been rewritten) along with the full ancestor chain. Return `nil` to leave the node unchanged, or return a replacement to substitute it. Because only modified paths are copied, the original tree is never mutated.
+
+```go
+type EditFunc func(node Node, parents []Node) Node
+
+func Rewrite(root Node, fn EditFunc) Node
+func RewriteProgram(root *Program, fn EditFunc) *Program  // type-safe convenience
+```
+
+**Walk without rewriting** — `EditFunc` doubles as a read-only visitor when you always return `nil`:
+
+```go
+func CollectCalls(root ast.Node) []*ast.FunctionCall {
+	var calls []*ast.FunctionCall
+	ast.Rewrite(root, func(node ast.Node, _ []ast.Node) ast.Node {
+		if fc, ok := node.(*ast.FunctionCall); ok {
+			calls = append(calls, fc)
+		}
+		return nil
+	})
+	return calls
+}
+```
+
+**Rename an identifier across a whole program:**
+
+```go
+func Rename(root *ast.Program, from, to string) *ast.Program {
+	return ast.RewriteProgram(root, func(node ast.Node, _ []ast.Node) ast.Node {
+		id, ok := node.(*ast.Identifier)
+		if !ok || id.Name != from {
+			return nil
+		}
+		cp := *id
+		cp.Name = to
+		return &cp
+	})
+}
+```
+
+**Use `parents` for context-sensitive rewrites** — the slice runs from the root (`parents[0]`) down to the immediate parent (`parents[len-1]`):
+
+```go
+// Wrap every number literal that is directly inside a return with tostring()
+ast.RewriteProgram(root, func(node ast.Node, parents []ast.Node) ast.Node {
+	lit, ok := node.(*ast.Literal)
+	if !ok || lit.Type != "number" || len(parents) == 0 {
+		return nil
+	}
+	if _, ok := parents[len(parents)-1].(*ast.ReturnStatement); !ok {
+		return nil
+	}
+	return &ast.FunctionCall{
+		Function: &ast.Identifier{Name: "tostring"},
+		Args:     []ast.Expr{lit},
+	}
+})
+```
+
+**Constant folding** — because children are rewritten before the parent sees them, multi-level simplification happens in a single pass:
+
+```go
+ast.RewriteProgram(root, func(node ast.Node, _ []ast.Node) ast.Node {
+	bin, ok := node.(*ast.BinaryOp)
+	if !ok {
+		return nil
+	}
+	l, lOk := bin.Left.(*ast.Literal)
+	r, rOk := bin.Right.(*ast.Literal)
+	if !lOk || !rOk || l.Type != "number" || r.Type != "number" {
+		return nil
+	}
+	lv, rv := l.Value.(float64), r.Value.(float64)
+	var result float64
+	switch bin.Op {
+	case "+":
+		result = lv + rv
+	case "-":
+		result = lv - rv
+	case "*":
+		result = lv * rv
+	case "/":
+		if rv == 0 {
+			return nil
+		}
+		result = lv / rv
+	default:
+		return nil
+	}
+	return &ast.Literal{Type: "number", Value: result}
+})
+```
+
 ## Transforming the AST
-luau-parser provides a `Transformer` interface and a `BaseTransformer` base implementation for walking and rewriting the AST. Embed `BaseTransformer` in your own struct and override only the node types you want to change — everything else is passed through and recursively walked by default.
+luau-parser provides a `Transformer` interface and a `BaseTransformer` base implementation for walking and **mutating** the AST in place. Unlike `Rewrite`, the transformer modifies nodes directly — no copies are made, which fits the arena model perfectly.
+
+Because Go does not have virtual method dispatch through struct embedding, you must pass the outer concrete type into the traversal yourself. The recommended pattern is to add a `self Transformer` field and initialise it in a constructor:
 
 ```go
 package main
@@ -179,7 +275,7 @@ import (
 	"github.com/Wh1teSlash/luau-parser/visitors"
 )
 
-// RenameTransformer renames all identifiers matching From to To.
+// RenameTransformer renames every identifier matching From to To.
 type RenameTransformer struct {
 	ast.BaseTransformer
 	From, To string
@@ -202,9 +298,10 @@ func main() {
 	p := parser.New(l, factory)
 	program := p.ParseProgram()
 
-	// Rename every identifier "x" to "value"
 	t := &RenameTransformer{From: "x", To: "value"}
-	t.TransformProgram(program)
+	for i, stmt := range program.Body {
+		program.Body[i] = t.TransformStmt(stmt)
+	}
 
 	printer := visitors.NewPrinter()
 	fmt.Println(printer.Print(program))
@@ -215,7 +312,7 @@ func main() {
 }
 ```
 
-The transformer mutates nodes in place, which fits the arena model — no extra allocations. If you need to produce a new node instead of mutating (e.g. changing a node's type entirely), use the factory inside your override:
+If you need to replace a node with one of a different type rather than mutating it, allocate via the factory inside your override:
 
 ```go
 type ZeroLiteralsTransformer struct {
@@ -225,7 +322,6 @@ type ZeroLiteralsTransformer struct {
 
 func (t *ZeroLiteralsTransformer) TransformLiteral(node *ast.Literal) ast.Expr {
 	if node.Type == "number" {
-		// replace every number literal with zero
 		return t.factory.Literal(node.Pos(), "number", int64(0))
 	}
 	return node
